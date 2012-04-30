@@ -1,0 +1,104 @@
+#!/bin/sh
+#
+#	Startmush - Kick off the netmush process.
+#
+PATH=/usr/local/bin:/usr/ucb:/bin:/usr/bin:.; export PATH
+# You need this library path for the new gdbm
+# LD_LIBRARY_PATH=$LD_LIBRARY_PATH:../src/gdbm-1.8.3:../src/gdbm-1.8.3/.libs
+# export LD_LIBRARY_PATH
+#
+. mush.config
+#
+#	Make sure there isn't aready a MUSH running.
+#
+#nmush=`ps ux | egrep netmush | wc -l`
+#if [ $nmush -gt 1 ]; then
+#	exit 0
+#fi
+#
+#	Make sure the indexes are up-to-date.
+#
+
+if [ ! -r ./netrhost ]; then
+   echo "Hmm, I can't seem to find netrhost in this directory."
+   echo "You might need to 'cd .. ; make links'"
+   exit 1;
+fi
+
+./mkindx ${TXT_DIR}/news.txt ${TXT_DIR}/news.indx
+./mkindx ${TXT_DIR}/help.txt ${TXT_DIR}/help.indx
+./mkindx ${TXT_DIR}/wizhelp.txt ${TXT_DIR}/wizhelp.indx
+./mkindx ${TXT_DIR}/error.txt ${TXT_DIR}/error.indx
+./mkindx ${TXT_DIR}/doorconf.txt ${TXT_DIR}/doorconf.indx
+./compress_logs.sh
+# Only comment out this line if you intend to set up an HTML interface 
+# for the mush help.
+#./mkhtml ${TXT_DIR}/help.txt ${TXT_DIR}/help.indx /usr/local/etc/httpd/htdocs/users/rhost/autohelp/help.html
+#
+#	Check for a panic dump.  If there is one and it is good, copy
+#	it on top of the last checkpoint DB written by mush.  If it is bad,
+#	just delete it.
+#
+if [ -r $CRASH_DB ]; then
+	end="`tail -1 $CRASH_DB`"
+	if [ "$end" = "***END OF DUMP***" ]; then
+		mv $CRASH_DB $NEW_DB
+	else
+		rm $CRASH_DB
+		echo "Warning: PANIC dump corrupt using older db."
+		echo "Warning: PANIC dump failed on "`date` | mail $OWNER
+	fi
+fi
+#
+#	Save a copy of the previous input database and log.
+#
+if [ -r $INPUT_DB ]; then
+	mv -f $INPUT_DB $SAVE_DB
+fi
+if [ -r $LOGNAME.old ]; then
+	echo "Archiving old log."
+	LOGARCHIVE=$LOGNAME.`date +%Y%m%d`_`date +%H%M`
+	mv -f $LOGNAME.old $LOGARCHIVE
+	gzip $LOGARCHIVE
+	mv -f $LOGARCHIVE.gz oldlogs
+fi
+mv -f $LOGNAME $LOGNAME.old
+#
+#	If we have a good checkpoint database, make it the input database.
+#	If not, use the backup of the input database.
+#
+if [ -r $NEW_DB ]; then
+	mv $NEW_DB $INPUT_DB
+else
+	cp $SAVE_DB $INPUT_DB
+fi
+#
+#	Kick off MUSH
+#
+# The backup_flat.sh is a script that basically daily makes a backup of
+# the flatfile.  File is included in distribution.
+(nohup ./backup_flat.sh > /dev/null 2>&1 &)
+#
+# Make sure the port '42010' matches the port of the debugmon.
+# In your mushname.conf file!
+if [ "$1" = "-f" ]
+then
+   DEBUG_OVERRIDE=1
+   export DEBUG_OVERRIDE
+fi
+if [ -f "$INPUT_DB" ]
+then
+   (nohup ./netrhost.debugmon ${DEBUG_ID} ./netrhost $GAMENAME.conf >$LOGNAME 2>&1 &)
+else
+   echo "There was no valid database information found."
+   echo "Is this the first time that you are trying to start the mush? (Y/N) : "|tr -d '\012'
+   read ANS
+   if [ "$ANS" = "y" -o "$ANS" = "Y" ]
+   then
+      (nohup ./netrhost.debugmon ${DEBUG_ID} ./netrhost -s $GAMENAME.conf >$LOGNAME 2>&1 &)
+      echo "Have fun with your new mush.  #1's initial password will be 'Nyctasia'"
+      echo "Don't forget to @shutdown as soon as you connect to save the new database."
+   else
+      echo "You have some trouble with your database files.  Please review the problem."
+   fi
+fi

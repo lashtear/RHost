@@ -335,6 +335,8 @@ NAMETAB function_sw[] =
     {(char *) "preserve", 3, CA_WIZARD, 0, FN_PRES|SW_MULTIPLE},
     {(char *) "delete", 2, CA_WIZARD, 0, FN_DEL},
     {(char *) "display", 2, CA_WIZARD, 0, FN_DISPLAY},
+    {(char *) "minimum", 2, CA_WIZARD, 0, FN_MIN},
+    {(char *) "maximum", 2, CA_WIZARD, 0, FN_MAX},
     {NULL, 0, 0, 0, 0}};
 
 NAMETAB genhelp_sw[] =
@@ -952,7 +954,7 @@ CMDENT command_table[] =
     {(char *) "@areg", areg_sw, CA_IMMORTAL, 0,
      0, CS_TWO_ARG | CS_INTERP, 0, do_areg},
     {(char *) "@assert", NULL, CA_PUBLIC, CA_NO_CODE,
-     0, CS_TWO_ARG | CS_CMDARG /*| CS_NOINTERP*/, 0, do_assert},
+     0, CS_TWO_ARG | CS_CMDARG | CS_NOINTERP | CS_STRIP_AROUND, 0, do_assert},
     {(char *) "@attribute", attrib_sw, CA_GOD | CA_IMMORTAL | CA_WIZARD, 0,
      0, CS_TWO_ARG | CS_INTERP, 0, do_attribute},
     {(char *) "@blacklist", blacklist_sw, CA_LOCATION | CA_IMMORTAL, 0, 0, CS_NO_ARGS | CS_INTERP, 0, do_blacklist},
@@ -961,7 +963,7 @@ CMDENT command_table[] =
     {(char *) "@bfree", NULL, CA_GOD | CA_IMMORTAL, 0,
      0, CS_NO_ARGS, 0, do_buff_free},
     {(char *) "@break", NULL, CA_PUBLIC, CA_NO_CODE,
-     0, CS_TWO_ARG | CS_CMDARG /*| CS_NOINTERP*/, 0, do_break},
+     0, CS_TWO_ARG | CS_CMDARG | CS_NOINTERP | CS_STRIP_AROUND, 0, do_break},
     {(char *) "@chown", chown_sw,
      CA_NO_SLAVE | CA_NO_GUEST | CA_GBL_BUILD | CA_NO_WANDER, 0,
      CHOWN_ONE, CS_TWO_ARG | CS_INTERP, 0, do_chown},
@@ -1716,7 +1718,7 @@ check_access(dbref player, int mask, int mask2, int ccheck)
 	 ((mask & CA_NO_SUSPECT) && Suspect(player)) ||
 	 ((mask & CA_NO_WANDER) && Wanderer(player)) ||
 	 ((mask & CA_NO_GUEST) && Guest(player)) ||
-	 ((mask2 & CA_NO_CODE) && NoCode(player)))) {
+	 ((mask2 & CA_NO_CODE) && NoCode(player) && !mudstate.nocodeoverride))) {
         DPOP; /* #26 */
 	return 0;
     }
@@ -2193,9 +2195,9 @@ process_cmdent(CMDENT * cmdp, char *switchp, dbref player,
 
 void reportcputime(dbref player, struct itimerval *itimer)
 {
-  unsigned int hundstart;
-  unsigned int hundend;
-  unsigned int hundinterval;
+  unsigned long hundstart;
+  unsigned long hundend;
+  unsigned long hundinterval;
   char *tpr_buff, *tprp_buff;
 
   DPUSH; /* #28 */
@@ -3125,8 +3127,10 @@ process_command(dbref player, dbref cause, int interactive,
           DPOP; /* #29 */
 	  return;
 	}
-	strcpy(command,msave);
-	free_lbuf(msave);
+        if ( msave ) {
+	   strcpy(command,msave);
+	   free_lbuf(msave);
+        }
     }
 
     cval = cval2 = 0;
@@ -4000,9 +4004,11 @@ process_command(dbref player, dbref cause, int interactive,
                   narg_prog = newlist2arr(arr_prog, LBUF_SIZE/2, lst_cmd, '\0');
                }
                lcbuf = atr_get(mudconf.global_error_obj, A_VA, &aowner2, &aflags2);
+               mudstate.nocodeoverride = 1;
                lcbuf_temp = exec(mudconf.global_error_obj, cause, cause, 
                                  EV_EVAL | EV_FCHECK | EV_STRIP | EV_TOP, lcbuf,
                                  arr_prog, narg_prog );
+               mudstate.nocodeoverride = 0;
                notify(player, lcbuf_temp);
                free_lbuf(lcbuf);
                free_lbuf(lcbuf_temp);
@@ -8432,6 +8438,8 @@ void do_protect(dbref player, dbref cause, int key, char *name)
             notify(player, unsafe_tprintf("Alias what?  The name '%s' is not in the protected list.", name));
          } else if ( i_return == -2 ) {
             notify(player, unsafe_tprintf("The name '%s' is already marked as an alias.", name));
+         } else if ( i_return == -3 ) {
+            notify(player, unsafe_tprintf("The name '%s' is already set in your @alias attribute.", name));
          } else {
             notify(player, unsafe_tprintf("You have successfully activated '%s' as an alias.", name));
             for ( bp=mudstate.protectname_head; bp; bp=bp->next ) {
@@ -8456,6 +8464,8 @@ void do_protect(dbref player, dbref cause, int key, char *name)
             notify(player, unsafe_tprintf("The name '%s' is already unmarked from being an alias.", name));
          } else if ( i_return == -3 ) {
             notify(player, unsafe_tprintf("The name '%s' is their current active name.  Can not unalias.", name));
+         } else if ( i_return == -4 ) {
+            notify(player, unsafe_tprintf("The name '%s' is their current @alias attribute.  Can not unalias.", name));
          } else {
             notify(player, unsafe_tprintf("You have successfully de-activated '%s' as an alias.", name));
             for ( bp=mudstate.protectname_head; bp; bp=bp->next ) {

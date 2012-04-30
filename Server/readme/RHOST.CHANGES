@@ -1,3 +1,14 @@
+                         RhostMUSH 3.9.2 Update File
+@assert/@break didn't handle {} correctly.
+				- Thanks Wyrd
+singletime() handles (w)eeks, (M)onths, and (y)ears like MUX.
+				- Thanks Chime & MUX2
+crash bug in command.c with regards to mail handler
+				- Thanks Chime
+aliased rjust to rj and ljust to lj and updated help files appropiately.
+				- Thanks Montague
+glibc for MAX_INT/MIN_INT had issues with math functions - wrapper fixes this.
+
                          RhostMUSH 3.9.1 Update File
 Credits for any features should go here.  All changes should go into the main help.txt file
 cluster_hasattr() bug for #-1 that should be 0 for non-existant attribs.
@@ -38,6 +49,8 @@ mux_lcon_compat added to allow lcon() to return empty string.
 				- Thanks Minion
 cluster_wipe added for clusters
 				- Thanks Cary
+NO_CODE broke global_error_obj as it's executed by enactor.
+				- Thanks Matrix
 
 
 --------------------------------------------------------------------------------

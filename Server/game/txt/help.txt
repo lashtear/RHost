@@ -3507,7 +3507,10 @@
   would open exit 'north;n' from here to #1234, and an exit 'south;s'
   from #1234 to here, assuming you have rights to open exits and link to
   the rooms in question.
- 
+  
+  Note:  To make variable exits, you @toggle the exit VARIABLE then set
+         an appropiate @exitto on it.
+   
   The following switches are available:
      /location  - Create the exit in your location (default).
      /inventory - Create the exit on yourself.
@@ -6215,12 +6218,23 @@
   
   Optional switches are /quiet to suppress output or /noisy to give 
   verbose output.
+  
+  The SAFELOG @toggle when set convers what you see from 'You say...' to
+  'yourname says' or whatever @saystring is set to.
    
-  Example: @saystring me=barks
+  IN the example, when you talk, it would show:  Player barks "Hello"
   
-  Then when you talk, it would show:  Player barks "Hello"
+  Example: 
+  > @saystring me=barks
+  Set.
+  > "hello
+  You say "hello"
+  > @toggle me=SAFELOG
+  Set.
+  > "hello
+  Player barks "hello"
   
-  See Also: say, "
+  See Also: say, ", safelog toggle
   
 & @salisten
   Command: @salisten[/<switch>] <object> = <command-list>
@@ -8083,26 +8097,26 @@
   CREATETIME()   CREPLACE()      CTU()         DEC()           DECRYPT()
   DEFAULT()      DELETE()        DELEXTRACT()  DESTROY()       DICE()      
   DIG()          DIGEST()        DIST2D()      DIST3D()        DIV()       
-  E()            EDEFAULT()      EDIT()        ELIST()         ELEMENTS()  
-  ELEMENTSMUX()  ELOCK()         EMIT()        ENCRYPT()       ENTRANCES() 
-  EQ()           ERROR()         ESCAPE()      ESCAPEX()       EVAL()      
-  EXIT()         EXP()           EXTRACT()     FBETWEEN()      FBOUND()    
-  FDIV()         FILTER()        FINDABLE()    FIRST()         FLAGS()     
-  FLOOR()        FLOORDIV()      FOLD()        FOLDERCURRENT() FOLDERLIST()
-  FOREACH()      FULLNAME()      GARBLE()      GET()           GET_EVAL()   
-  GLOBALROOM()   GRAB()          GRABALL()     GREP()          GT()         
-  GTE()          GUILD()         HASATTR()     HASATTRP()      HASFLAG()    
-  HASTOGGLE()    HASTYPE()       HASQUOTA()    HASRXLEVEL()    HASTXLEVEL() 
-  HOME()         IBREAK()        IDLE()        IFELSE()        IINDEX()     
-  ILEV()         INC()           INDEX()       INPROGRAM()     INSERT()     
-  INUM()         INZONE()        ISALNUM()     ISALPHA()       ISCLUSTER()
-  ISDBREF()      ISDIGIT()       ISHIDDEN()    ISNUM()         ISPUNCT()     
-  ISSPACE()      ISWORD()        ISXDIGIT()    ITER()          ITEXT()       
-  KEEPFLAGS()    KEEPTYPE()      LADD()        LAND()          LAST()        
-  LASTCREATE()   LATTR()         LAVG()        LCMDS()         LCON()        
-  LCSTR()        LDELETE()       LDIV()        LEMIT()         LEFT()        
-  LEXITS()       LFLAGS()        LINK()        LIST()          LISTCOMMANDS()
-  LISTDIFF()     LISTFUNCTIONS() 
+  E()            EDEFAULT()      EDIT()        EE()            ELIST()       
+  ELEMENTS()     ELEMENTSMUX()   ELOCK()       EMIT()          ENCRYPT()     
+  ENTRANCES()    EQ()            ERROR()       ESCAPE()        ESCAPEX()     
+  EVAL()         EXIT()          EXP()         EXTRACT()       FBETWEEN()    
+  FBOUND()       FDIV()          FILTER()      FINDABLE()      FIRST()       
+  FLAGS()        FLOOR()         FLOORDIV()    FOLD()          FOLDERCURRENT()
+  FOLDERLIST()   FOREACH()       FULLNAME()    GARBLE()        GET()         
+  GET_EVAL()     GLOBALROOM()    GRAB()        GRABALL()       GREP()        
+  GT()           GTE()           GUILD()       HASATTR()       HASATTRP()    
+  HASFLAG()      HASTOGGLE()     HASTYPE()     HASQUOTA()      HASRXLEVEL()  
+  HASTXLEVEL()   HOME()          IBREAK()      IDLE()          IFELSE()      
+  IINDEX()       ILEV()          INC()         INDEX()         INPROGRAM()   
+  INSERT()       INUM()          INZONE()      ISALNUM()       ISALPHA()     
+  ISCLUSTER()    ISDBREF()       ISDIGIT()     ISHIDDEN()      ISNUM()       
+  ISPUNCT()      ISSPACE()       ISWORD()      ISXDIGIT()      ITER()        
+  ITEXT()        KEEPFLAGS()     KEEPTYPE()    LADD()          LAND()        
+  LAST()         LASTCREATE()    LATTR()       LAVG()          LCMDS()       
+  LCON()         LCSTR()         LDELETE()     LDIV()          LEMIT()       
+  LEFT()         LEXITS()        LFLAGS()      LINK()          LIST()        
+  LISTCOMMANDS() LISTDIFF()      LISTFUNCTIONS() 
   
 { 'help function list3' for more }
   
@@ -8205,7 +8219,7 @@
               See Also: help ansi functions
   
   Arithmetic:           ABS() ADD() AVG() BETWEEN() BOUND() DEC() DICE()
-                        DIV() FBETWEEN() FBOUND() FDIV() FLOORDIV() INC() 
+                        DIV() EE() FBETWEEN() FBOUND() FDIV() FLOORDIV() INC()
                         MOD() MODULO() MUL() NCOMP() RAND() REMAINDER() 
                         SIGN() STRMATH() SUB() XDEC() XINC() 
               See Also: help arithmetic functions
@@ -8665,13 +8679,15 @@
     %p, %P  = Name's, his, her, its, their.   (possessive)
     %a, %A  = Name's, his, hers, its, theirs. (absolute possessive)
     %n, %N  = the player's name.
-    %r      = carriage return
-    %t      = tab character
-    %b      = space character
-    %%      = literal '%' character
+    %r      = carriage return.
+    %t      = tab character.
+    %b      = space character.
+    %%      = literal '%' character.
     %0-%9   = Value of positional parameter/stack location 0 through 9.
-    %q0-%q9 = Value of registers.  Basically equivalent to [r(0)] - [r(9)]
-    %va-%vz = Contents of attribute va through vz
+    %i0-%i9 = Equivalent to itext(0) through itext(9).
+    %q0-%q9 = Value of registers.  Basically equivalent to [r(0)] - [r(9)].
+    %qa-%qz = Extended value of registers.
+    %va-%vz = Contents of attribute va through vz.
   
   Note: %q<label> works for setq labels.  ie.  [setq(0,foo,bar)]%q<bar>
   
@@ -9846,7 +9862,331 @@
     You say "Thu Dec 19 09:48:06 1991"
   
   See Also: convsecs(), convtime(), secs()
+ 
+& timezone list
+Zone   Zone Name                           Zone Location    UTC/GMT Offset
+------ ----------------------------------- ---------------- ------------------
+A      Alpha Time Zone                     Military         UTC + 1 hour
+ADT    Atlantic Daylight Time              Atlantic         UTC - 3 hours
+ADT1   Atlantic Daylight Time              North America    UTC - 3 hours
+AFT    Afghanistan Time                    Asia             UTC + 4:30 hours
+AKDT   Alaska Daylight Time                North America    UTC - 8 hours
+AKST   Alaska Standard Time                North America    UTC - 9 hours
+ALMT   Alma-Ata Time                       Asia             UTC + 6 hours
+AMST   Armenia Summer Time                 Asia             UTC + 5 hours
+AMST   Amazon Summer Time                  South America    UTC - 3 hours
+AMT    Armenia Time                        Asia             UTC + 4 hours
+AMT1   Amazon Time                         South America    UTC - 4 hours
+ANAST  Anadyr Summer Time                  Asia             UTC + 12 hours
+ANAT   Anadyr Time                         Asia             UTC + 12 hours
+AQTT   Aqtobe Time                         Asia             UTC + 5 hours
+ART    Argentina Time                      South America    UTC - 3 hours
+AST    Atlantic Standard Time              Atlantic         UTC - 4 hours
+AST1   Atlantic Standard Time              Caribbean        UTC - 4 hours
+AST2   Atlantic Standard Time              North America    UTC - 4 hours
+AST3   Arabia Standard Time                Asia             UTC + 3 hours
+AZOST  Azores Summer Time                  Atlantic         UTC
+AZOT   Azores Time                         Atlantic         UTC - 1 hour
+AZST   Azerbaijan Summer Time              Asia             UTC + 5 hours
   
+{ timezone list2 to continue    1 of 12
+
+& timezone list2
+Zone   Zone Name                           Zone Location    UTC/GMT Offset
+------ ----------------------------------- ---------------- ------------------
+AZT    Azerbaijan Time                     Asia             UTC + 4 hours
+B      Bravo Time Zone                     Military         UTC + 2 hours
+BNT    Brunei Darussalam Time              Asia             UTC + 8 hours
+BOT    Bolivia Time                        South America    UTC - 4 hours
+BRST   Brasilia Summer Time                South America    UTC - 2 hours
+BRT    Brasília time                       South America    UTC - 3 hours
+BST    Bangladesh Standard Time            Asia             UTC + 6 hours
+BST1   British Summer Time                 Europe           UTC + 1 hour
+BTT    Bhutan Time                         Asia             UTC + 6 hours
+C      Charlie Time Zone                   Military         UTC + 3 hours
+CAST   Casey Time                          Antarctica       UTC + 8 hours
+CAT    Central Africa Time                 Africa           UTC + 2 hours
+CCT    Cocos Islands Time                  Indian Ocean     UTC + 6:30 hours
+CDT    Central Daylight Time               North America    UTC - 5 hours
+CDT1   Central Daylight Time               Australia        UTC + 10:30 hours
+CDT2   Cuba Daylight Time                  Caribbean        UTC - 4 hours
+CEST   Central European Summer Time        Europe           UTC + 2 hours
+CET    Central European Time               Europe           UTC + 1 hour
+CET1   Central European Time               Africa           UTC + 1 hour
+CHADT  Chatham Island Daylight Time        Pacific          UTC + 13:45 hours
+CHAST  Chatham Island Standard Time        Pacific          UTC + 12:45 hours
+CKT    Cook Island Time                    Pacific          UTC - 10 hours
+  
+{ timezone list3 to continue}    2 of 12
+
+& timezone list3
+Zone   Zone Name                           Zone Location    UTC/GMT Offset
+------ ----------------------------------- ---------------- ------------------
+CLST   Chile Summer Time                   South America    UTC - 3 hours
+CLT    Chile Standard Time                 South America    UTC - 4 hours
+COT    Colombia Time                       South America    UTC - 5 hours
+CST    Central Standard Time               North America    UTC - 6 hours
+CST1   Central Standard Time               Central America  UTC - 6 hours
+CST2   Central Standard Time               Australia        UTC + 9:30 hours
+CST3   China Standard Time                 Asia             UTC + 8 hours
+CST4   Cuba Standard Time                  Caribbean        UTC - 5 hours
+CVT    Cape Verde Time                     Africa           UTC - 1 hour
+CXT    Christmas Island Time               Australia        UTC + 7 hours
+ChST   Chamorro Standard Time              Pacific          UTC + 10 hours
+D      Delta Time Zone                     Military         UTC + 4 hours
+DAVT   Davis Time                          Antarctica       UTC + 7 hours
+E      Echo Time Zone                      Military         UTC + 5 hours
+EASST  Easter Island Summer Time           Pacific          UTC - 5 hours
+EAST   Easter Island Standard Time         Pacific          UTC - 6 hours
+EAT    Eastern Africa Time                 Africa           UTC + 3 hours
+EAT1   East Africa Time                    Indian Ocean     UTC + 3 hours
+ECT    Ecuador Time                        South America    UTC - 5 hours
+EDT    Eastern Daylight Time               North America    UTC - 4 hours
+EDT1   Eastern Daylight Time               Pacific          UTC + 11 hours
+EDT2   Eastern Daylight Time               Australia        UTC + 11 hours
+  
+{ timezone list4 to continue}    3 of 12
+
+& timezone list4
+Zone   Zone Name                           Zone Location    UTC/GMT Offset
+------ ----------------------------------- ---------------- ------------------
+EDT3   Eastern Daylight Time               Caribbean        UTC - 4 hours
+EEST   Eastern European Summer Time        Europe           UTC + 3 hours
+EEST1  Eastern European Summer Time        Africa           UTC + 3 hours
+EEST2  Eastern European Summer Time        Asia             UTC + 3 hours
+EET    Eastern European Time               Europe           UTC + 2 hours
+EET1   Eastern European Time               Africa           UTC + 2 hours
+EET2   Eastern European Time               Asia             UTC + 2 hours
+EGST   Eastern Greenland Summer Time       North America    UTC
+EGT    East Greenland Time                 North America    UTC - 1 hour
+EST    Eastern Standard Time               North America    UTC - 5 hours
+EST1   Eastern Standard Time               Central America  UTC - 5 hours
+EST2   Eastern Standard Time               Australia        UTC + 10 hours
+EST3   Eastern Standard Time               Caribbean        UTC - 5 hours
+ET     Tiempo Del Este                     North America    UTC - 5 hours
+ET1    Tiempo del Este                     Central America  UTC - 5 hours
+ET2    Tiempo del Este                     Caribbean        UTC - 5 hours
+F      Foxtrot Time Zone                   Military         UTC + 6 hours
+FJST   Fiji Summer Time                    Pacific          UTC + 13 hours
+FJT    Fiji Time                           Pacific          UTC + 12 hours
+FKST   Falkland Islands Summer Time        South America    UTC - 3 hours
+FKT    Falkland Island Time                South America    UTC - 4 hours
+FNT    Fernando de Noronha Time            South America    UTC - 2 hours
+  
+{ timezone list5 to continue}    4 of 12
+
+& timezone list5
+Zone   Zone Name                           Zone Location    UTC/GMT Offset
+------ ----------------------------------- ---------------- ------------------
+G      Golf Time Zone                      Military         UTC + 7 hours
+GALT   Galapagos Time                      Pacific          UTC - 6 hours
+GAMT   Gambier Time                        Pacific          UTC - 9 hours
+GET    Georgia Standard Time               Asia             UTC + 4 hours
+GFT    French Guiana Time                  South America    UTC - 3 hours
+GILT   Gilbert Island Time                 Pacific          UTC + 12 hours
+GMT    Greenwich Mean Time                 Europe           UTC
+GMT1   Greenwich Mean Time                 Africa           UTC
+GST    Gulf Standard Time                  Asia             UTC + 4 hours
+GYT    Guyana Time                         South America    UTC - 4 hours
+H      Hotel Time Zone                     Military         UTC + 8 hours
+HAA    Heure Avancée de l'Atlantique       North America    UTC - 3 hours
+HAA1   Heure Avancée de l'Atlantique       Atlantic         UTC - 3 hours
+HAC    Heure Avancée du Centre             North America    UTC - 5 hours
+HADT   Hawaii-Aleutian Daylight Time       North America    UTC - 9 hours
+HAE    Heure Avancée de l'Est              North America    UTC - 4 hours
+HAE1   Heure Avancée de l'Est              Caribbean        UTC - 4 hours
+HAP    Heure Avancée du Pacifique          North America    UTC - 7 hours
+HAR    Heure Avancée des Rocheuses         North America    UTC - 6 hours
+HAST   Hawaii-Aleutian Standard Time       North America    UTC - 10 hours
+HAT    Heure Avancée de Terre-Neuve        North America    UTC - 2:30 hours
+HAY    Heure Avancée du Yukon              North America    UTC - 8 hours
+  
+{ timezone list6 to continue}    5 of 12
+
+& timezone list6
+Zone   Zone Name                           Zone Location    UTC/GMT Offset
+------ ----------------------------------- ---------------- ------------------
+HKT    Hong Kong Time                      Asia             UTC + 8 hours
+HLV    Hora Legal de Venezuela             South America    UTC - 4:30 hours
+HNA    Heure Normale de l'Atlantique       North America    UTC - 4 hours
+HNA1   Heure Normale de l'Atlantique       Atlantic         UTC - 4 hours
+HNA2   Heure Normale de l'Atlantique       Caribbean        UTC - 4 hours
+HNC    Heure Normale du Centre             North America    UTC - 6 hours
+HNC1   Heure Normale du Centre             Central America  UTC - 6 hours
+HNE    Heure Normale de l'Est              North America    UTC - 5 hours
+HNE1   Heure Normale de l'Est              Central America  UTC - 5 hours
+HNE2   Heure Normale de l'Est              Caribbean        UTC - 5 hours
+HNP    Heure Normale du Pacifique          North America    UTC - 8 hours
+HNR    Heure Normale des Rocheuses         North America    UTC - 7 hours
+HNT    Heure Normale de Terre-Neuve        North America    UTC - 3:30 hours
+HNY    Heure Normale du Yukon              North America    UTC - 9 hours
+HOVT   Hovd Time                           Asia             UTC + 7 hours
+I      India Time Zone                     Military         UTC + 9 hours
+ICT    Indochina Time                      Asia             UTC + 7 hours
+IDT    Israel Daylight Time                Asia             UTC + 3 hours
+IOT    Indian Chagos Time                  Indian Ocean     UTC + 6 hours
+IRDT   Iran Daylight Time                  Asia             UTC + 4:30 hours
+IRKST  Irkutsk Summer Time                 Asia             UTC + 9 hours
+IRKT   Irkutsk Time                        Asia             UTC + 8 hours
+  
+{ timezone list7 to continue}    6 of 12
+
+& timezone list7
+Zone   Zone Name                           Zone Location    UTC/GMT Offset
+------ ----------------------------------- ---------------- ------------------
+IRST   Iran Standard Time                  Asia             UTC + 3:30 hours
+IST    Irish Standard Time                 Europe           UTC + 1 hour
+IST1   Israel Standard Time                Asia             UTC + 2 hours
+IST2   India Standard Time                 Asia             UTC + 5:30 hours
+JST    Japan Standard Time                 Asia             UTC + 9 hours
+K      Kilo Time Zone                      Military         UTC + 10 hours
+KGT    Kyrgyzstan Time                     Asia             UTC + 6 hours
+KRAST  Krasnoyarsk Summer Time             Asia             UTC + 8 hours
+KRAT   Krasnoyarsk Time                    Asia             UTC + 7 hours
+KST    Korea Standard Time                 Asia             UTC + 9 hours
+KUYT   Kuybyshev Time                      Europe           UTC + 4 hours
+L      Lima Time Zone                      Military         UTC + 11 hours
+LHDT   Lord Howe Daylight Time             Australia        UTC + 11 hours
+LHST   Lord Howe Standard Time             Australia        UTC + 10:30 hours
+LINT   Line Islands Time                   Pacific          UTC + 14 hours
+M      Mike Time Zone                      Military         UTC + 12 hours
+MAGST  Magadan Summer Time                 Asia             UTC + 12 hours
+MAGT   Magadan Time                        Asia             UTC + 11 hours
+MART   Marquesas Time                      Pacific          UTC - 9:30 hours
+MAWT   Mawson Time                         Antarctica       UTC + 5 hours
+MDT    Mountain Daylight Time              North America    UTC - 6 hours
+MHT    Marshall Islands Time               Pacific          UTC + 12 hours
+  
+{ timezone list8 to continue}    7 of 12
+
+& timezone list8
+Zone   Zone Name                           Zone Location    UTC/GMT Offset
+------ ----------------------------------- ---------------- ------------------
+MMT    Myanmar Time                        Asia             UTC + 6:30 hours
+MSD    Moscow Daylight Time                Europe           UTC + 4 hours
+MSK    Moscow Standard Time                Europe           UTC + 3 hours
+MST    Mountain Standard Time              North America    UTC - 7 hours
+MUT    Mauritius Time                      Africa           UTC + 4 hours
+MVT    Maldives Time                       Asia             UTC + 5 hours
+MYT    Malaysia Time                       Asia             UTC + 8 hours
+N      November Time Zone                  Military         UTC - 1 hour
+NCT    New Caledonia Time                  Pacific          UTC + 11 hours
+NDT    Newfoundland Daylight Time          North America    UTC - 2:30 hours
+NFT    Norfolk Time                        Australia        UTC + 11:30 hours
+NOVST  Novosibirsk Summer Time             Asia             UTC + 7 hours
+NOVT   Novosibirsk Time                    Asia             UTC + 6 hours
+NPT    Nepal Time                          Asia             UTC + 5:45 hours
+NST    Newfoundland Standard Time          North America    UTC - 3:30 hours
+NUT    Niue Time                           Pacific          UTC - 11 hours
+NZDT   New Zealand Daylight Time           Pacific          UTC + 13 hours
+NZDT1  New Zealand Daylight Time           Antarctica       UTC + 13 hours
+NZST   New Zealand Standard Time           Pacific          UTC + 12 hours
+NZST1  New Zealand Standard Time           Antarctica       UTC + 12 hours
+O      Oscar Time Zone                     Military         UTC - 2 hours
+OMSST  Omsk Summer Time                    Asia             UTC + 7 hours
+  
+{ timezone list9 to continue}    8 of 12
+
+& timezone list9
+Zone   Zone Name                           Zone Location    UTC/GMT Offset
+------ ----------------------------------- ---------------- ------------------
+OMST   Omsk Standard Time                  Asia             UTC + 6 hours
+P      Papa Time Zone                      Military         UTC - 3 hours
+PDT    Pacific Daylight Time               North America    UTC - 7 hours
+PET    Peru Time                           South America    UTC - 5 hours
+PETST  Kamchatka Summer Time               Asia             UTC + 12 hours
+PETT   Kamchatka Time                      Asia             UTC + 12 hours
+PGT    Papua New Guinea Time               Pacific          UTC + 10 hours
+PHOT   Phoenix Island Time                 Pacific          UTC + 13 hours
+PHT    Philippine Time                     Asia             UTC + 8 hours
+PKT    Pakistan Standard Time              Asia             UTC + 5 hours
+PMDT   Pierre & Miquelon Daylight Time     North America    UTC - 2 hours
+PMST   Pierre & Miquelon Standard Time     North America    UTC - 3 hours
+PONT   Pohnpei Standard Time               Pacific          UTC + 11 hours
+PST    Pacific Standard Time               North America    UTC - 8 hours
+PST1   Pitcairn Standard Time              Pacific          UTC - 8 hours
+PT     Tiempo del Pacífico                 North America    UTC - 8 hours
+PWT    Palau Time                          Pacific          UTC + 9 hours
+PYST   Paraguay Summer Time                South America    UTC - 3 hours
+PYT    Paraguay Time                       South America    UTC - 4 hours
+Q      Quebec Time Zone                    Military         UTC - 4 hours
+R      Romeo Time Zone                     Military         UTC - 5 hours
+RET    Reunion Time                        Africa           UTC + 4 hours
+  
+{ timezone list10 to continue}    9 of 12
+
+& timezone list10
+Zone   Zone Name                           Zone Location    UTC/GMT Offset
+------ ----------------------------------- ---------------- ------------------
+S      Sierra Time Zone                    Military         UTC - 6 hours
+SAMT   Samara Time                         Europe           UTC + 4 hours
+SAST   South Africa Standard Time          Africa           UTC + 2 hours
+SBT    Solomon IslandsTime                 Pacific          UTC + 11 hours
+SCT    Seychelles Time                     Africa           UTC + 4 hours
+SGT    Singapore Time                      Asia             UTC + 8 hours
+SRT    Suriname Time                       South America    UTC - 3 hours
+SST    Samoa Standard Time                 Pacific          UTC - 11 hours
+T      Tango Time Zone                     Military         UTC - 7 hours
+TAHT   Tahiti Time                         Pacific          UTC - 10 hours
+TFT    French Southern and Antarctic Time  Indian Ocean     UTC + 5 hours
+TJT    Tajikistan Time                     Asia             UTC + 5 hours
+TKT    Tokelau Time                        Pacific          UTC - 10 hours
+TLT    East Timor Time                     Asia             UTC + 9 hours
+TMT    Turkmenistan Time                   Asia             UTC + 5 hours
+TVT    Tuvalu Time                         Pacific          UTC + 12 hours
+U      Uniform Time Zone                   Military         UTC - 8 hours
+ULAT   Ulaanbaatar Time                    Asia             UTC + 8 hours
+UT1    Universal Time Principal            Zulu Time        UTC
+UTC    Coordinated Universal Time          Zulu Time        UTC 
+UYST   Uruguay Summer Time                 South America    UTC - 2 hours
+UYT    Uruguay Time                        South America    UTC - 3 hours
+UZT    Uzbekistan Time                     Asia             UTC + 5 hours
+  
+{ timezone list11 to continue}    10 of 12
+
+& timezone list11
+Zone   Zone Name                           Zone Location    UTC/GMT Offset
+------ ----------------------------------- ---------------- ------------------
+V      Victor Time Zone                    Military         UTC - 9 hours
+VET    Venezuelan Standard Time            South America    UTC - 4:30 hours
+VLAST  Vladivostok Summer Time             Asia             UTC + 11 hours
+VLAT   Vladivostok Time                    Asia             UTC + 10 hours
+VUT    Vanuatu Time                        Pacific          UTC + 11 hours
+W      Whiskey Time Zone                   Military         UTC - 10 hours
+WAST   West Africa Summer Time             Africa           UTC + 2 hours
+WAT    West Africa Time                    Africa           UTC + 1 hour
+WDT    Western Daylight Time               Australia        UTC + 9 hours
+WEST   Western European Summer Time        Europe           UTC + 1 hour
+WEST1  Western European Summer Time        Africa           UTC + 1 hour
+WET    Western European Time               Europe           UTC
+WET1   Western European Time               Africa           UTC
+WFT    Wallis and Futuna Time              Pacific          UTC + 12 hours
+WGST   Western Greenland Summer Time       North America    UTC - 2 hours
+WGT    West Greenland Time                 North America    UTC - 3 hours
+WIB    Western Indonesian Time             Asia             UTC + 7 hours
+WIT    Eastern Indonesian Time             Asia             UTC + 9 hours
+WITA   Central Indonesian Time             Asia             UTC + 8 hours
+WST    West Samoa Time                     Pacific          UTC - 11 hours
+WST1   Western Standard Time               Australia        UTC + 8 hours
+WST2   Western Sahara Summer Time          Africa           UTC + 1 hour
+  
+{ timezone list12 to continue}    11 of 12
+
+& timezone list12
+Zone   Zone Name                           Zone Location    UTC/GMT Offset
+------ ----------------------------------- ---------------- ------------------
+WT     Western Sahara Standard Time        Africa           UTC
+X      X-ray Time Zone                     Military         UTC - 11 hours
+Y      Yankee Time Zone                    Military         UTC - 12 hours
+YAKST  Yakutsk Summer Time                 Asia             UTC + 10 hours
+YAKT   Yakutsk Time                        Asia             UTC + 9 hours
+YAPT   Yap Time                            Pacific          UTC + 10 hours
+YEKST  Yekaterinburg Summer Time           Asia             UTC + 6 hours
+YEKT   Yekaterinburg Time                  Asia             UTC + 5 hours
+Z      Zulu Time Zone                      Military         UTC
+  
+See Also: timefmt()
+
 & RIGHT()
   Function: right(<string>, <position>)
   
@@ -9900,6 +10240,18 @@
   
   See Also: randextract(), randpos(), randmatch()
   
+& EE()
+  ee(<number> [, <precision>])
+  
+  The ee() function turns the number into an engineering value based on
+  the specified precision.  If no precision is given, it defaults to 2.
+  
+  Example:
+    say ee(123456789012345)
+    You say "1.23E+14"
+  
+  See Also: mul(), fdiv(), strmath()
+
 & ENTRANCES()
   entrances([<object> [,<type> [,<begin> [,<end>]]]])
    
@@ -10212,25 +10564,22 @@
   
 & DIST2D()
   Function: dist2d(x1, y1, x2, y2)
-  
-& DIST2D()
-  Function: dist2d(x1, y1, x2, y2)
- 
+   
   Returns the integer distance between the Cartesian points in two dimensions
   (x1,y1) and (x2,y2).
- 
+   
   Example:
     > say dist2d(0,0,3,4)
     You say "5"
-  
+    
   See Also: dist3d()
   
 & DIST3D()
   Function: dist3d(x1, y1, z1, x2, y2, z2)
- 
+   
   Returns the integer distance between the Cartesian points in three
   dimensions (x1,y1,z1) and (x2,y2,z2).
- 
+   
   Example:
     > say dist3d(0,0,0,10,15,20)
     You say "27"
@@ -11364,9 +11713,9 @@
   Any invalid registers specified will be skipped over and ignored.
   
   Examples:
-    > say regmatch(cookies=30,(.+)=([0-9]*))
+    > say regmatch(cookies=30,\(.+\)=\(\[0-9\]*\))
     You say "1"
-    > say regmatch(cookies=30,(.+)=([0-9]*),0 3 5) |%q0/%q3/%q5|
+    > say regmatch(cookies=30,\(.+\)=\(\[0-9\]*\),0 3 5) |%q0/%q3/%q5|
     You say "1 |cookies=30/cookies/30|
   
   See Also: 'help regexp syntax' for an explanation of regular expressions.
@@ -11389,9 +11738,9 @@
   Any invalid registers specified will be skipped over and ignored.
   
   Examples:
-    > say regmatchi(cookies=30,(.+)=([0-9]*))
+    > say regmatchi(cookies=30,\(.+\)=\(\[0-9\]*\))
     You say "1"
-    > say regmatchi(cookies=30,(.+)=([0-9]*),0 3 5) |%q0/%q3/%q5|
+    > say regmatchi(cookies=30,\(.+\)=\(\[0-9\]*\),0 3 5) |%q0/%q3/%q5|
     You say "1 |cookies=30/cookies/30|
   
   See Also: 'help regexp syntax' for an explanation of regular expressions.
@@ -12777,12 +13126,15 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   See Also: timefmt()
   
 & TIMEFMT()
-  Function: timefmt(<format string>, <secs>)
+  Function: timefmt(<format string>, <secs> [,<output timezone>])
   
   Uses the provided <format string> to output the <secs> in many useful
   ways. The function can be used to interpret <secs> as calendar time,
   or as elapsed time. Due to the many capabilities of this function,
   help for it is broken up into several sections.
+  
+  You may specify an optional output timezone for the time.  For a
+  list of timezones, please see 'help timezone list'.
   
   ALL AVAILABLE CODES:  help timefmt codelist  (very handy!)
   FORMAT SYNTAX:        help timefmt syntax
@@ -12791,8 +13143,9 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   ELAPSED TIME FORMATS: help timefmt elapsed
   EXAMPLES:             help timefmt examples
   ESCAPE SEQUENCES:     help timefmt escapes
+  TIMEZONE FORMATS:     help timefmt timezone
   
-  See Also: time(), singletime(), ptimefmt()
+  See Also: time(), singletime(), ptimefmt(), timezone list
   
 & TIMEFMT ESCAPES
   To cause the timefmt function to output a '$' character it must be
@@ -12886,18 +13239,23 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   argument as elapsed time. An example of elapsed time would be those
   number of seconds returned by the conn() function.
   
-  SPEC   DESC                      RANGE     NOTE
-  'Z'    Elapsed years             0..????   Uses 365 day years
-  'E'    Elapsed months in year    0..12     Uses 31 day months/365 day years
-  'e'    Elapsed months absolute   0..????   Uses 31 day months
-  'C'    Elapsed days in month     0..31     Uses 31 day months
-  'c'    Elapsed days absolute     0..????
-  'X'    Elapsed hours in day      0..24     
-  'x'    Elapsed hours absolute    0..????
-  'F'    Elapsed minutes in hour   0..60
-  'f'    Elapsed minutes absolute  0..????
-  'G'    Elapsed seconds in minute 0..60
-  'g'    Elapsed seconds absolute  0..????
+  SPEC   DESC                           RANGE     NOTE
+  'm'    Elapsed Millenium              0..????
+  'U'    Elapsed Century in Millenium   0..9
+  'u'    Elapsed years in Century       0..99
+  'Z'    Elapsed years                  0..????   Uses 365 day years
+  'E'    Elapsed months in year         0..12     Uses 31 day months/365 days
+  'e'    Elapsed months absolute        0..????   Uses 31 day months
+  'C'    Elapsed days in month          0..31     Uses 31 day months
+  'w'    Elapsed weeks in month         0..4
+  'd'    Elapsed days in week           0..6
+  'c'    Elapsed days absolute          0..????
+  'X'    Elapsed hours in day           0..24     
+  'x'    Elapsed hours absolute         0..????
+  'F'    Elapsed minutes in hour        0..60
+  'f'    Elapsed minutes absolute       0..????
+  'G'    Elapsed seconds in minute      0..60
+  'g'    Elapsed seconds absolute       0..????
   
   See Also: timefmt examples, conn()
   
@@ -12992,28 +13350,47 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   
   See Also: timefmt codelist
   
+& TIMEFMT TIMEZONE
+  Following are codes used specifically for timezone manipulation and 
+  identification.
+  
+  SPEC   DESC                           RANGE     NOTE
+  'z'    Daylight Savings Toggle        0..1      Boolean to show if active
+  't'    Offset of MUSH local TZ        0..?      Offset in secs of current TZ
+  'I'    Offset from GMT time           0..?      Offset in secs from GMT
+  'i'    Abbreviation of Timezone       XYZ       
+  'N'    Timezone Longname              <str>     Returns the Timezone Name
+  'n'    Timezone Shortname             <str>     Returns geographical area
+  
+  See Also: timefmt codelist
+
 & TIMEFMT CODELIST
   Following codes exist for formatting for timefmt(<format>,<time-in-secs>)
   
-  Code Type            Range           Code Type            Range
-  ---- --------------  --------------  ---- --------------  ------------------
-  H    hour of day     1 - 12          A    Weekday (long)  Sunday - Saturday
-  h    military day    0 - 23          a    Weekday (short) Sun - Sat
-  T    minute in hour  0 - 59          W    Weekday (num)   0 - 6
-  S    sec. in min.    0 - 59          B    Month (long)    January - December
-  P    Time of day     AM - PM         b    Month (short)   Jan - Dec
-  p    Time of day     am - pm         M    Month (number)  1 - 12
-  Z    Elapsed years   0 - ????        D    Day of month    1 - 31
-  E    Months in years 0 - 12          J    Day of year     1 - 366
-  e    Elapsed months  0 - ????        Y    Year (four dig) 0 - ????
-  C    Days in months  0 - 31          y    Year (two dig)  0 - ??
-* c    Elapsed days    0 - ????     *  !    Don't print field if value is 0
-* X    Hours in day    0 - 24          ~    Pad with space but not if value 0
-  x    Elapsed hours   0 - ????        @    Prnt if value or prev. value not 0
-* F    Mins. in hours  0 - 60          #    Pad with spc if val/prev val not 0
-  f    Elapsed mins.   0 - ????     * 0-9   Format column with # allignment
-  G    Secs. in minute 0 - 60       *  $    Use special code (this list)
-  g    Elapsed secs.   0 - ????
+  Code Type              Range         Code Type            Range
+  ---- --------------    ------------  ---- --------------  ------------------
+  H    hour of day       1 - 12        A    Weekday (long)  Sunday - Saturday
+  h    military day      0 - 23        a    Weekday (short) Sun - Sat
+  T    minute in hour    0 - 59        W    Weekday (num)   0 - 6
+  S    sec. in min.      0 - 59        B    Month (long)    January - December
+  P    Time of day       AM - PM       b    Month (short)   Jan - Dec
+  p    Time of day       am - pm       M    Month (number)  1 - 12
+  Z    Elapsed years     0 - ????      D    Day of month    1 - 31
+  E    Months in years   0 - 12        J    Day of year     1 - 366
+  e    Elapsed months    0 - ????      Y    Year (four dig) 0 - ????
+  C    Days in months    0 - 31        y    Year (two dig)  0 - ??
+  d    Days in weeks     0 - 6         I    Seconds offset from GMT time
+  w    Weeks in month    0 - 4         z    Returns '1' if daylight savings
+  u    Years in century  0 - 99        i    Returns the timezone abbreviation
+  U    Century in Mill   0 - 9         N    Returns the longname of timezone
+  m    Elapsed Millenium 0 - ????      n    Return the shortname of timezone
+* c    Elapsed days      0 - ????      t    Seconds offset of existing timezone
+* X    Hours in day      0 - 24     *  !    Don't print field if value is 0
+  x    Elapsed hours     0 - ????      ~    Pad with space but not if value 0
+* F    Mins. in hours    0 - 60        @    Prnt if value or prev. value not 0
+  f    Elapsed mins.     0 - ????      #    Pad with spc if val/prev val not 0
+  G    Secs. in minute   0 - 60     * 0-9   Format column with # allignment     
+  g    Elapsed secs.     0 - ????   *  $    Use special code (this list)     
   
   Note: Codes with a '*' were used in the example that follows.
   { help timefmt codelist2 for an example with great details }
@@ -13438,6 +13815,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             performed.
     - N:    Performs capitalization naturally, and does not affect any other
             characters in the list (default).
+    - T:    Performs a 'true' capitalization based on currently English
+            definition for titles.
   
   Example:
     > say caplist(the mAn in thE mOon).
@@ -14020,7 +14399,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
     You say "b-1 o-2 o-3 !-4"
     > say citer(testing,strlen(##))
     You say "1 1 1 1 1 1 1"
-    > say citer(bob,## WHEE ##,-)
+    > say citer(bob,## WHEE ##,@)
     You say "b WHEE b@o WHEE o@b WHEE b"
   
   See Also: iter(), nsiter(), list(), @dolist
@@ -14434,7 +14813,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   See Also: str(), before(), after()
   
 & OBJEVAL()
-  Function: objeval(<thing>,<function>)
+  Function: objeval(<thing>,<function> [,<permission override>])
   
   The objeval function evaluates the target function according to the 
   permissions of the thing that is specified.  If you normally do not
@@ -14442,6 +14821,10 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   useful when you need to parse arguments under a different permission 
   level than the one you currently at.
   
+  Permission override, if specified to '1' by a wizard enactor, will
+  override the NO_CODE flag on the target and still execute any code
+  of that person.  This is ignored for any inactor not a wizard.
+   
   Examples:
     > (Let's assume #4523 is an object owned by a normal player)
     > say objeval(#4523,lwho())
@@ -15196,7 +15579,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   is case-sensitive.
   
   Example:
-    > say reswitch(c,.a.,A,.b.,B,.c.,C,.d.,D,E)
+    > say reswitch(xxcxxxxxx,.*a.*,A,.*b.*,B,.*c.*,C,.*d.*,D,E)
     You say "C"
   
   See Also: switch(), reswitchi(), reswitchall(), reswitchalli(), regexps
@@ -15933,6 +16316,9 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   
   The SIDEFX flag is required to use open().
   
+  Note:  To make variable exits, you @toggle the exit VARIABLE then set
+         an appropiate @exitto on it.
+   
   Type @list options to see if this side-effect function is enabled.
   
   Examples:
@@ -17549,8 +17935,10 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   
   See Also: u(), iter(), map(), filter(), citer(), nsiter(), list()
   
+& RJ()
 & RJUST()
   Function: rjust(<string>, <length>[, <fill>])
+            rj(<string>, <length>[, <fill>])
  
   This function pads a string with leading <fill> characters, or with spaces
   if no fill character is given) ("right-justifies") so it is <length> long.
@@ -17628,8 +18016,10 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
    
   See Also: ljust(), rjc(), rjust(), printf(), wrap()
  
+& LJ()
 & LJUST()
   Functions: ljust(<string>, <length>[, <fill>])
+  Functions: lj(<string>, <length>[, <fill>])
  
   This function pads a string with trailing <fill> characters, or with spaces
   if no fill character is given) ("left-justifies") so it is <length> long.
@@ -17962,13 +18352,13 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   See Also: ljust(), rjust(), ljc(), rjc(), printf()
   
 & INSERT()
-  Function: insert(<list>, <pos>, <word>[, <sep>])
+  Function: insert(<list>, <pos> [<pos2>...<posN>], <word>[, <sep>])
  
   This function inserts a word into <list> so that the word becomes the
   <pos>'th element of the list, and all subsequent list elements are moved
   down.  This means that it appears between the <pos-1>'th and <pos>'th
   elements of the original list.  This function may not be used to append
-  a word to a list.
+  a word to a list.  You may specify more than one position.
  
   <delim> may be used to specify a delimiter other than a space.
  
@@ -17988,7 +18378,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   end of <string>.  If <string> is longer than what would be replaced,
   the rest of the <string> is automatically appended to the end of
   <list>.  You may specify optional delimiters instead of the default
-  space.
+  space.  You may specify more than one position.
   
   Examples:
     > say lreplace(this is a test,3,a spotted giraffe)
@@ -17999,13 +18389,14 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   See Also: replace(), rindex(), ldelete(), ldelete(), delete()
   
 & REPLACE()
-  Function: replace(<list>, <pos>, <word>[, <delim>])
+  Function: replace(<list>, <pos> [<pos2>...<posN>], <word>[, <delim>])
  
   This function inserts a word into <list> so that the word becomes the
   <pos>'th element of the list, and the word previously in that position
   is removed.  This means that it appears between the <pos-1>'th and
   <pos+1>'th elements of the original list, replacing the word at that
   position.  This function may not be used to append a word to a list.
+  You may specify more than one position.
  
   <delim> may be used to specify a delimiter other than a space.
  
@@ -18018,7 +18409,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   See Also: extract(), insert(), ldelete(), delete(), rindex()
   
 & LDELETE()
-  Function: ldelete(<list>, <pos>[, <sep>])
+  Function: ldelete(<list>, <pos> [<pos2>...<posN>] [, <sep>])
  
   This function removes a word from <list> by position.
   <delim> may be used to specify a delimiter other than a space.
@@ -21516,6 +21907,8 @@ Mail: Done
   When set on a player, it 'cleans' their say output for proper logging.
   Instead of 'You say "blah"' they will see 'So-n-So says "blah"' or
   whatever their @saystring is set as.  This works with SAY and ".
+  
+  See Also: say, ", @saystring
 
 & VPAGE TOGGLE
   Toggle: VPAGE
@@ -22328,6 +22721,7 @@ Mail: Done
   dec()       - Decreases a value held in a register by 1.
   dice()      - Simulates a roll of dice to generate a random number.
   div()       - Divides an integer value with another.
+  ee()        - Engineering notation of a number.
   fbetween()  - Returns true if a floating point value is between two others.
   fbound()    - Returns a floating point between a min and max value.
   fdiv()      - Division with floating point support.
@@ -22916,10 +23310,11 @@ ASH - Ashen-Shugar        AMB - Ambrosia            EEH - Noltar
 KRK - Loki                LNS - Lensman             ODN - Odin
 SEA - Seawolf
  
-Current Revision: 3.9.1p2
+Current Revision: 3.9.2p1
 
 Available Revisions:
   3.9.1: 3.9.1p1, 3.9.1p2
+  3.9.2: 3.9.2p0, 3.9.2p1
 
 & 3.9.1p1
 Release Date: 20 Jun 2008
@@ -22950,7 +23345,7 @@ Bug Fixes
 * Fixed wrap() 'justification' issue if string less than wrap length [ASH]
 
 & 3.9.1p2
-Release Date: Not Yet Released
+Release Date: 12/01/10
 Status: Alpha
 
 New Features
@@ -23005,6 +23400,8 @@ Changes
 * added mux_lcon_compat to enforce lcon() returns empty string [ASH]
 * setq()/setr() now understand '+' for dynamic named variables [ASH]
 * /PROTECT switch to @function for tagging of deleting regs [ASH]
+* map() delimiter is controlled by a config param map_space_delim [ASH]
+* @function now allows /min and /max for user-defined functions [ASH]
 
 Bug Fixes
 ---------
@@ -23031,3 +23428,45 @@ Bug Fixes
 * Backing out new code could cause internal attributes to be redefined. [ASH]
 * @ps/all and pid() didn't always show the queue for non-players [ASH]
 * map() broke compatibility with output delim if not specified [ASH]
+* @skip didn't evaluate properly [ASH]
+
+& 3.9.2p1
+Release 09/30/2011
+Status: Alpha
+
+New Features
+------------
+* checkpass() function for royalty and higher. [KRK]
+* %i substitution for itext. [KRK]
+* chkgarbage() function to check if target is GOING [ASH]
+* lookup_site() to see the real in-use SITE of a port [ASH]
+* ee() for engineering notation of floating points [ASH]
+
+
+Changes
+-------
+* singletime() now handles (w)eeks, (M)onths, and (y)ears like MUX [ASH]
+* timefmt() handles 'Z' (timezone), 'z' daylight savings, 'u' days in
+  century, 'U' century in millenium, and 'm' total milliniums. [ASH]
+* map() can take a config option for default delimiter (default space) [ASH]
+* caplist() handles English Syntax Title formats [ASH]
+* @function takes /min and /max values for @function definitions [ASH]
+* @function/list displays MIN and MAX values (if existing) [ASH]
+* timefmt() handles timezone conversion... all timezones... [ASH]
+* timefmt() handles weeks, centuries, and milleniums [ASH]
+* ldelete() handles multiple arguments [ASH]
+* insert() handles multiple arguments [ASH]
+* replace() handles multiple arguments [ASH]
+* ifelse() handles %$ [ASH]
+* objeval() with third arg to bypass NO_CODE flag [ASH]
+
+Bug Fixes
+---------
+* @assert/@break didn't handle {}'s for multiple args [ASH]
+* illegal buffer free and copy in command.c [ASH]
+* Fix for int handler exception in glibc [ASH]
+* @protect could walk over @alias -- minor glitch [ASH]
+* @include didn't properly evaluate arguments [ASH]
+* elapsed time in time fields in timefmt() broke with negative numbers [ASH]
+* CPUTIME didn't report CPU seconds correctly in 64 bit platforfms [ASH]
+* NO_CODE broke global_error_obj if enabled.  Fixed [ASH]

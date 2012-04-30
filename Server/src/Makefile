@@ -17,6 +17,8 @@ CPP = $(CC) -E
 LIBS = -L./gdbm-1.8.3/.libs/ -lgdbm_compat -L./gdbm-1.8.3/ -lgdbm
 #LIBS = -L./qdbm/ -lqdbm
 LIBOBJS = 
+# for compiling on lowmem systems use this
+#CFLAGS = --param ggc-min-expand=0 --param ggc-min-heapsize=8192
 
 # If you wish to debug the code, run under this
 OPTIM = -g
@@ -70,8 +72,7 @@ D_SRC	= door.c shs.c mushcrypt.c news.c mail.c mailfix.c debug.c senses.c \
 	  unparse.c eval.c command.c wild.c netcommon.c functions.c vattr.c \
 	  db.c db_rw.c compress.c stringutil.c object.c conf.c flags.c htab.c \
 	  compat.c file_c.c player_c.c bsd.c alloc.c autoreg.c levels.c \
-          local.c utils.c pcre.c pcre_extensions.c tprintf.c sha1.c 64btime.c $(DR_SRC) \
-	  mysql.c
+          local.c utils.c pcre.c pcre_extensions.c tprintf.c sha1.c 64btime.c $(DR_SRC)
 
 D_OBJ	= door.o shs.o mushcrypt.o news.o mail.o mailfix.o debug.o senses.o \
 	  create.o game.o help.o look.o match.o move.o player.o predicates.o \
@@ -79,13 +80,12 @@ D_OBJ	= door.o shs.o mushcrypt.o news.o mail.o mailfix.o debug.o senses.o \
 	  unparse.o eval.o command.o wild.o netcommon.o functions.o vattr.o \
 	  db.o db_rw.o compress.o stringutil.o object.o conf.o flags.o htab.o \
           compat.o file_c.o player_c.o bsd.o alloc.o autoreg.o levels.o \
-          local.o utils.o pcre.o pcre_extensions.o tprintf.o sha1.o 64btime.o $(DR_OBJ) \
-	  mysql.o
+          local.o utils.o pcre.o pcre_extensions.o tprintf.o sha1.o 64btime.o $(DR_OBJ)
 
 D_INC	= door.h shs.h news.h mail.h debug.h \
 	  copyright.h flags.h help.h htab.h interface.h match.h functions.h \
 	  command.h rwho_clilib.h  config.h db.h externs.h mudconf.h misc.h \
-	  vattr.h file_c.h fifo.h alloc.h attrs.h levels.h \
+	  vattr.h file_c.h fifo.h alloc.h attrs.h levels.h timez.h \
           local.h utils.h pcre.h pcre_extensions.h sha1.h $(DR_HDRS)
 
 D_FLG   = -DMUSH_BUILD_DATE="\"`cat date.txt`\""
@@ -149,7 +149,7 @@ VER_FLG	= -DMUSH_BUILD_DATE="\"`cat date.txt`\"" \
 # SYS_MALLOC - Used if malloc.h is in a borked spot.
 ###########################################################################################################
 
-DEFS = -DBROKEN_NDBM -DBROKEN_ERRNO_SYS -DBIT64 -DSBUF64 $(MYSQL_DEFS) -DMUXCRYPT -DSECURE_SIDEEFFECT -DBANGS -DMARKER_FLAGS -DZENTY_ANSI -DEXPANDED_QREGS -DREALITY_LEVELS -DATTR_HACK -DPROG_LIKEMUX -DPLUSHELP -DUSECRYPT -DSOFTCOM -DMUX_INCDEC -DUSE_SIDEEFFECT -Wall -DHAS_OPENSSL -DOLD_SETQ -DTINY_U
+DEFS = -DBROKEN_NDBM -DBROKEN_ERRNO_SYS -DOLD_REALITIES -DSECURE_SIDEEFFECT -DOLD_SETQ -DBANGS -DMARKER_FLAGS -DZENTY_ANSI -DEXPANDED_QREGS -DREALITY_LEVELS -DATTR_HACK -DPROG_LIKEMUX -DPLUSHELP -DUSECRYPT -DSOFTCOM -DMUX_INCDEC -DTINY_U -DUSE_SIDEEFFECT -Wall
 #
 # Rhost supports two encryption schemes SHS (SHA-1), and the 
 # unix crypt() function (DES).
@@ -167,32 +167,6 @@ DEFS = -DBROKEN_NDBM -DBROKEN_ERRNO_SYS -DBIT64 -DSBUF64 $(MYSQL_DEFS) -DMUXCRYP
 #CRYPT_SCHEME = -DCRYPT_SHS_ONLY
 #CRYPT_SCHEME = -DCRYPT_SHS_ONLY -DSHS_REVERSE
 #
-## mySQL settings: Edit these as appropriate.
-#   MYSQL_INC: The path to the mySQL header files.
-#   MYSQL_LIB: The path to the mySQL libraries, and -lmysqlclient
-#   MYSQL_USERNAME: The username to connect to the database as.
-#   MYSQL_PASSWORD: The password for the above user.
-#   MYSQL_DATABASE: The name of the database to connect to.
-#   MYSQL_HOST    : The hostname to connect to. In theory this means
-#                   that a remote host could be used, but unless you've
-#                   a really fast connection to that box it's not recommended
-#   MYSQL_SOCKET  :
-#
-MYSQL_INC=-I/usr/include/
-MYSQL_LIB=-L/usr/lib/ -lmysqlclient
-MYSQL_USERNAME=
-MYSQL_PASSWORD=
-MYSQL_DATABASE=
-MYSQL_HOST=
-MYSQL_SOCKET=/var/run/mysqld/mysqld.sock
-# Don't edit this next bit.
-MYSQL_DEFS=-DDB_HOST=\"$(MYSQL_HOST)\" -DDB_SOCKET=\"$(MYSQL_SOCKET)\"
-MYSQL_DEFS+=-DDB_USER=\"$(MYSQL_USERNAME)\" -DDB_PASS=\"$(MYSQL_PASSWORD)\"
-MYSQL_DEFS+=-DDB_BASE=\"$(MYSQL_DATABASE)\"
-MYSQL_DEFS+=$(MYSQL_INC)
-
-
-
 #
 #-----GCC on some Linux boxes are broken with regards to the below
 #
@@ -252,7 +226,7 @@ MYSQL_DEFS+=$(MYSQL_INC)
 ################################################################  #1
 #MORELIBS  = -lm
 ################################################################  #2
-#MORELIBS = -lm -lnsl -lresolv -lcrypt  -lcrypto -lssl
+#MORELIBS = -lm -lnsl -lresolv -lcrypt 
 #-L/usr/lib -lc -lm
 ################################################################  #3
 #MORELIBS  = -lm -lnsl -lsocket -L/usr/ucblib -lucb
@@ -261,7 +235,7 @@ MYSQL_DEFS+=$(MYSQL_INC)
 ################################################################  #5
 #MORELIBS  = -lm -L/usr/local/lib -lcygipc
 
-MORELIBS = -lm -lnsl -lresolv -lcrypt  -lcrypto -lssl $(MYSQL_LIB)
+MORELIBS = -lm -lnsl -lresolv -lcrypt 
 
 # Set this to the directory where the MUSH game lives.
 # This is not really used much

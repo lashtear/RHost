@@ -7453,7 +7453,7 @@ pcre_exec(const pcre * external_re, const pcre_extra * extra_data,
   time_t endtme, starttme;
   struct itimerval cpuchk;
   double timechk, intervalchk;
-  static unsigned int tstart, tend, tinterval;
+  static unsigned long tstart, tend, tinterval;
 
 
   tstart = 1000 * 100;

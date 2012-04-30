@@ -382,6 +382,10 @@ struct confdata {
 	int	switch_search;		/* Switch search() and searchng() */
 	int	signal_crontab;		/* Signal the crontab via USR1 */
         int 	max_name_protect;	/* Maximum name protects allowed */
+	int	map_delim_space;	/* map() delimitats space if specified null */
+	char	cap_conjunctions[LBUF_SIZE];	/* caplist exceptions */
+	char	cap_articles[LBUF_SIZE];	/* caplist exceptions */
+	char	cap_preposition[LBUF_SIZE];	/* caplist exceptions */
 #ifdef REALITY_LEVELS
         int no_levels;          /* # of reality levels */
         struct rlevel_def {
@@ -676,6 +680,7 @@ struct statedata {
 	int	wipe_state;	/* do_wipe state counter */
 	int	includecnt;	/* @include count */
 	int	includenest;	/* @include nest count */
+	int	nocodeoverride;	/* Override NO_CODE flag for objeval() */
         BLACKLIST *bl_list; 	/* The black list */
 #else
 	int	logging;	/* Are we in the middle of logging? */

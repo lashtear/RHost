@@ -60,6 +60,10 @@ char *rindex(const char *, int);
 #ifdef REALITY_LEVELS
 #include "levels.h"
 #endif /* REALITY_LEVELS */
+#include "timez.h"
+#ifndef INT_MAX
+#define INT_MAX 2147483647
+#endif
 
 UFUN *ufun_head;
 extern NAMETAB lock_sw[];
@@ -149,7 +153,13 @@ time_format_2(time_t dt)
         dt = 0;
 
     delta = gmtime(&dt);
-    if (delta->tm_yday > 0) {
+    if ((int)dt >= 31556926 ) {
+        sprintf(buf, "%dy", (int)dt / 31556926);
+    } else if ((int)dt >= 2629743 ) {
+        sprintf(buf, "%dM", (int)dt / 2629743); 
+    } else if ((int)dt >= 604800) {
+        sprintf(buf, "%dw", (int)dt / 604800);
+    } else if (delta->tm_yday > 0) {
         sprintf(buf, "%dd", delta->tm_yday);
     } else if (delta->tm_hour > 0) {
         sprintf(buf, "%dh", delta->tm_hour);
@@ -2432,7 +2442,7 @@ countwords(char *str, char sep)
 
     str = trim_space_sep(str, sep);
     if (!*str)
-  return 0;
+       return 0;
     for (n = 0; str; str = next_token(str, sep), n++);
     return n;
 }
@@ -2694,6 +2704,44 @@ FUNCTION(fun_dice)
           }
        }
     }
+}
+
+FUNCTION(fun_checkpass)
+{
+   dbref thing;
+   char *arg_ptr;
+
+   // Try a DBREF first.
+   if( *fargs[0] == '#' )
+   {
+      thing = match_thing( player, fargs[0] );
+   }
+   else
+   {
+      // Maybe we're doing an absolute player match.
+      if( *fargs[0] == '*' )
+      {
+         arg_ptr = fargs[0]+1;
+      } else {
+         arg_ptr = fargs[0];
+      }
+
+      thing = lookup_player( player, arg_ptr, 1 );
+   }
+
+   // Let's see if we have anything worthwhile.
+   if( !Good_obj( thing ) || ( thing == AMBIGUOUS || thing == NOTHING ) ||
+       Recover( thing ) || !isPlayer( thing ) ||
+      ( !Immortal( player ) && Cloak( thing ) && SCloak( thing ) ) ||
+      ( !Wizard( player ) && Cloak( thing ) ) )
+   {
+      // That's a no. Kick it back.
+      safe_str( "#-1 NO MATCH", buff, bufcx );
+      return;
+   }
+
+   // Hey, we've got a player. Let's check the password.
+   ival(buff, bufcx, (int) check_pass(thing, fargs[1], 0));
 }
 
 FUNCTION(fun_digest)
@@ -4491,6 +4539,97 @@ FUNCTION(fun_port)
        safe_str("-1", buff, bufcx);
 }
 
+FUNCTION(fun_chkgarbage)
+{
+   int i, retval;
+   dbref thing;
+
+   thing = -1;
+   retval = 0;
+   if ( (*fargs[0] == '#') && is_number(fargs[0]+1) ) {
+      thing=atoi(fargs[0]+1);
+   } else {
+      ival(buff, bufcx, retval);
+      return;
+   }
+   if ( (*fargs[1] == 'r') || (*fargs[1] == 'R') ) {
+      i = mudstate.recoverlist;
+   } else {
+      i = mudstate.freelist;
+   }   
+   while ( i != NOTHING ) {
+      if ( i == thing ) {
+         retval = 1;
+         break;
+      }
+      i = Link(i);
+   }
+   ival(buff, bufcx, retval);
+}
+
+FUNCTION(fun_lookup_site)
+{
+   DESC *d;
+   dbref it, aowner;
+   int mush_port = -1,
+       gotone = 0,
+       c_type = 0,
+       aflags;
+   char *s_str;
+
+   if (!fn_range_check("LOOKUP_SITE", nfargs, 1, 3, buff, bufcx)) {
+      return;
+   }
+
+   it = lookup_player(player, fargs[0], 0);
+   if ( (nfargs > 1) && is_number(fargs[1]) ) {
+      mush_port = atoi(fargs[1]);
+      if ( mush_port < 1 ) {
+         mush_port = -1;
+      }
+   } else {
+      mush_port = -1;
+   }
+   if ( (nfargs > 2) && *fargs[2] ) {
+      c_type=atoi(fargs[2]);
+   }
+   if ( (c_type < 0) || (c_type > 1) ) {
+      c_type = 0;
+   }
+   if ( Good_chk(it) && Controls(player, it)) {
+      DESC_ITER_CONN(d) {
+         if ( d->player == it ) {
+            if ( (mush_port == -1) || (d->descriptor == mush_port) ) {
+               if ( gotone ) {
+                  safe_chr(' ', buff, bufcx);
+               }
+               gotone = 1;
+               if ( c_type == 1 ) {
+                  safe_str(inet_ntoa(d->address.sin_addr), buff, bufcx);
+               } else {
+                  safe_str(d->addr, buff, bufcx);
+               }
+            }
+         }
+      }
+      if ( !gotone && (mush_port == -1)) {
+         if ( c_type == 1 ) {
+            s_str=atr_get(it, A_LASTIP, &aowner, &aflags);
+         } else {
+            s_str=atr_get(it, A_LASTSITE, &aowner, &aflags);
+         }
+         if ( *s_str ) {
+            gotone = 1;
+            safe_str(s_str, buff, bufcx);
+            free_lbuf(s_str);
+         }
+      }
+   } 
+   if ( !gotone ) {
+      safe_str("#-1", buff, bufcx);
+   }
+}
+
 FUNCTION(fun_children)
 {
     dbref i, it;
@@ -5148,11 +5287,19 @@ FUNCTION(fun_time)
  * 'J' - Day of year (1..366)
  * 'Y' - Year number (four digit)
  * 'y' - Year number (two digit)
+ * 'z' - '1' if daylight savings is in effect
+ * 'i' - Timezone
+ * 'I' - offset of timezone in seconds from GMT
  *
  * ELAPSED TIME:
+ * 'm' - Elapsed milleniums (0..??)
+ * 'U' - Elapsed century in millinium (0..9)
+ * 'u' - Elapsed year in century (0..99)
  * 'Z' - Elapsed years (0..??)
  * 'E' - Elapsed months within year (0..12)
  * 'e' - Elapsed months (0..??)
+ * 'w' - Elapsed weeks within month (0..5)
+ * 'd' - Elapsed days within week (0..6)
  * 'C' - Elapsed days within month (0..31)
  * 'c' - Elapsed days (0..??)
  * 'X' - Elapsed hours within day (0..24)
@@ -5503,7 +5650,7 @@ FUNCTION(fun_printf)
    struct timefmt_format fm, fm_array[30];
 
    if ( nfargs < 2 ) {
-      safe_str("#-1 FUNCTION (printf) EXPECTS 2 OR MORE ARGUMENTS [RECEIVED ", buff, bufcx);
+      safe_str("#-1 FUNCTION (PRINTF) EXPECTS 2 OR MORE ARGUMENTS [RECEIVED ", buff, bufcx);
       ival(buff, bufcx, nfargs);
       safe_chr(']', buff, bufcx);
       return;
@@ -5868,16 +6015,18 @@ FUNCTION(fun_printf)
    }
 }
 
+#define MUSH_TDAY	30.416667
 FUNCTION(fun_timefmt)
 {
   char* pp;
-  time_t secs;
+  time_t secs, i_frell;
   double secs2;
   char* fmtbuff;
   int formatpass = 0;
   int fmterror = 0;
   int fmtdone = 0;
   long l_offset = 0;
+  TZONE_MUSH *tzmush;
   struct tm *tms, *tms2, *tms3;
 
   static char* shortdayname[] = { "Sun", "Mon", "Tue", "Wed",
@@ -5894,6 +6043,9 @@ FUNCTION(fun_timefmt)
 
   struct timefmt_format fm;
 
+  if (!fn_range_check("TIMEFMT", nfargs, 2, 3, buff, bufcx))
+    return;
+
   memset( &fm, 0, sizeof(fm) );
 
   tzset();
@@ -5901,6 +6053,30 @@ FUNCTION(fun_timefmt)
   secs2 = safe_atof(fargs[1]);
   /* tms2 = localtime(&secs); */
   tms2 = localtime(&mudstate.now);
+
+  tzmush = NULL;
+  if ( (nfargs > 2) && *fargs[2] ) {
+     for ( tzmush = timezone_list; tzmush->mush_tzone != NULL; tzmush++ ) {
+        if ( stricmp((char *)tzmush->mush_tzone, (char *)fargs[2]) == 0 ) {
+           break;
+        }
+     }
+     if ( tzmush->mush_tzone ) {
+        secs = secs + timezone + tzmush->mush_offset;
+        secs2 = secs2 + timezone + tzmush->mush_offset;
+        i_frell = mudstate.now + timezone + tzmush->mush_offset;
+        tms2 = localtime(&i_frell);
+     }
+  }
+ 
+  if ( !tzmush ) {
+     for ( tzmush = timezone_list; tzmush->mush_tzone != NULL; tzmush++ ) {
+        if ( tzmush->mush_offset == -(timezone) ) {
+           break;
+        }
+     }
+  }
+
   l_offset = (long) mktime(tms2) - (long) mktime64(tms2);
   secs2 -= l_offset;
   tms = gmtime64_r(&secs2, tms2); 
@@ -6134,6 +6310,43 @@ FUNCTION(fun_timefmt)
                 }
                 formatpass = 1;
                 break;
+              case 'I': /* Offset from GMT */
+                if ( tzmush && tzmush->mush_offset ) {
+                   fm.lastval = tzmush->mush_offset; 
+                } else {
+                   fm.lastval = 0;
+                }
+                sprintf(fmtbuff, "%d", fm.lastval);
+                showfield(fmtbuff, buff, bufcx, &fm, 1);
+                fmtdone = 1;
+                break;
+              case 'i': /* The Time Zone Itself */
+                if ( tzmush && tzmush->mush_tzone) {
+                   sprintf(fmtbuff, "%s", tzmush->mush_tzone);
+                } else {
+                   sprintf(fmtbuff, "N/A");
+                }
+                showfield(fmtbuff, buff, bufcx, &fm, 0);
+                fmtdone = 1;
+                break;
+              case 'n': /* Short name of timezone */
+                if ( tzmush && tzmush->mush_ttype ) {
+                   sprintf(fmtbuff, "%s", tzmush->mush_ttype);
+                } else {
+                   sprintf(fmtbuff, "Unknown");
+                }
+                showfield(fmtbuff, buff, bufcx, &fm, 0);
+                fmtdone = 1;
+                break;
+              case 'N': /* Long name of timezone */
+                if ( tzmush && tzmush->mush_tname ) {
+                   sprintf(fmtbuff, "%s", tzmush->mush_tname);
+                } else {
+                   sprintf(fmtbuff, "Unknown");
+                }
+                showfield(fmtbuff, buff, bufcx, &fm, 0);
+                fmtdone = 1;
+                break;
               case 't': /* Timezone */
                 fm.lastval = timezone;
                 sprintf(fmtbuff, "%d", fm.lastval);
@@ -6252,67 +6465,148 @@ FUNCTION(fun_timefmt)
                 break;
               case 'Z': /* elapsed years (365 day year) */
                 fm.lastval = (int) (secs2 / 60 / 60 / 24 / 365);
-                sprintf(fmtbuff, "%.0f", floor(secs2 / 60 / 60 / 24 / 365));
+                if ( (int)secs2 < 0 )
+                   sprintf(fmtbuff, "%.0f", 0.0 - floor(fabs(secs2) / 60 / 60 / 24 / 365));
+                else
+                   sprintf(fmtbuff, "%.0f", floor(secs2 / 60 / 60 / 24 / 365));
                 showfield(fmtbuff, buff, bufcx, &fm, 1);
                 fmtdone = 1;
                 break;
               case 'E': /* elapsed months in year (31 day month) */
-                fm.lastval = (int) fmod( (secs2 / 60 / 60 / 24 / 31), 12);
+                fm.lastval = (int) fmod( (secs2 / 60 / 60 / 24 / MUSH_TDAY), 12);
+                if ( ((int) fmod((secs2/60/60/24), MUSH_TDAY)) < 0 )
+                   fm.lastval--;
+                if ( fm.lastval < 0 )
+                   fm.lastval = 12 - fm.lastval;
+                if ( (int)(secs2 / 60 / 60 / 24 / 365) != (int)((secs2 - 1) / 60 / 60 / 24 / 365) )
+                   fm.lastval = 0;
                 sprintf(fmtbuff, "%d", fm.lastval);
                 showfield(fmtbuff, buff, bufcx, &fm, 1);
                 fmtdone = 1;
                 break;
               case 'e': /* elapsed months (31 day month) */
-                fm.lastval = (int)(secs2 / 60 / 60 / 24 / 31);
+                fm.lastval = (int)(secs2 / 60 / 60 / 24 / MUSH_TDAY);
                 sprintf(fmtbuff, "%d", fm.lastval);
                 showfield(fmtbuff, buff, bufcx, &fm, 1);
                 fmtdone = 1;
                 break;
-              case 'C': /* elapsed days in month (31 day month) */
-                fm.lastval = (int) fmod( (secs2 / 60 / 60 / 24), 31);
+             case 'C': /* elapsed days in month (31 day month) */
+                fm.lastval = (int) fmod( (secs2 / 60 / 60 / 24), MUSH_TDAY);
+                if ( ((int) fmod( (secs2 / 60 / 60) , 24 )) < 0 )
+                   fm.lastval--;
+                if ( fm.lastval < 0 )
+                   fm.lastval = 31 - fm.lastval;
+                if ( (int)(secs2 / 60 / 60 / 24 / 365) != (int)((secs2 - 1) / 60 / 60 / 24 / 365) )
+                   fm.lastval = 0; 
+                sprintf(fmtbuff, "%d", fm.lastval);
+                showfield(fmtbuff, buff, bufcx, &fm, 1);
+                fmtdone = 1;
+                break;
+             case 'm': /* elapsed milleniums (365 day year) */
+                fm.lastval = (int) (secs2 / 60 / 60 / 24 / 365 / 1000);
+                sprintf(fmtbuff, "%d", fm.lastval);
+                showfield(fmtbuff, buff, bufcx, &fm, 1);
+                fmtdone = 1;
+                break;
+             case 'U': /* elapsed century in millenium (365 day year) */
+                fm.lastval = (int) (fmod( (secs2 / 60 / 60 / 24 / 365 / 100), 10));
+                if ( ((int) fmod( (secs2 / 60 / 60 / 24 / 365) , 100)) < 0 )
+                   fm.lastval--;
+                if ( fm.lastval < 0 )
+                   fm.lastval = 10 - fm.lastval;
+                sprintf(fmtbuff, "%d", fm.lastval);
+                showfield(fmtbuff, buff, bufcx, &fm, 1);
+                fmtdone = 1;
+                break;
+             case 'u': /* elapsed years in century (365 day week) */
+                fm.lastval = (int) (fmod( (secs2 / 60 / 60 / 24/ 365), 100));
+                if ( ((int) fmod( (secs2 / 60 / 60 / 24) , 365 )) < 0 )
+                   fm.lastval--;
+                if ( fm.lastval < 0 )
+                   fm.lastval = 100 - fm.lastval;
+                sprintf(fmtbuff, "%d", fm.lastval);
+                showfield(fmtbuff, buff, bufcx, &fm, 1);
+                fmtdone = 1;
+                break;
+             case 'w': /* elapsed weeks in month (7 day week) */
+                fm.lastval = (int) (fmod( (secs2 / 60 / 60 / 24), MUSH_TDAY) / 7);
+                if ( (int)(secs2 / 60 / 60 / 24 / 365) != (int)((secs2 - 1) / 60 / 60 / 24 / 365) )
+                   fm.lastval = 0; 
+                sprintf(fmtbuff, "%d", fm.lastval);
+                showfield(fmtbuff, buff, bufcx, &fm, 1);
+                fmtdone = 1;
+                break;
+              case 'd': /* elapsed days in week (7 day month) */
+                fm.lastval = (int) fmod( (secs2 / 60 / 60 / 24), 7);
+                if ( ((int) fmod( (secs2 / 60 / 60) , 24)) < 0 )
+                   fm.lastval--;
+                if ( fm.lastval < 0 )
+                   fm.lastval = 7 + fm.lastval;
                 sprintf(fmtbuff, "%d", fm.lastval);
                 showfield(fmtbuff, buff, bufcx, &fm, 1);
                 fmtdone = 1;
                 break;
               case 'c': /* elapsed days */
                 fm.lastval = (int)(secs2 / 60 / 60 / 24);
-                sprintf(fmtbuff, "%.0f", floor(secs2 / 60 / 60 / 24));
+                if ( (int)secs2 < 0 )
+                   sprintf(fmtbuff, "%.0f", 0.0 - floor(fabs(secs2) / 60 / 60 / 24));
+                else
+                   sprintf(fmtbuff, "%.0f", floor(secs2 / 60 / 60 / 24));
                 showfield(fmtbuff, buff, bufcx, &fm, 1);
                 fmtdone = 1;
                 break;
               case 'X': /* elapsed hours within a day */
                 fm.lastval = (int) fmod( (secs2 / 60 / 60), 24);
+                if ( ((int) fmod( (secs / 60), 60)) < 0)
+                   fm.lastval--;
+                if ( fm.lastval < 0 )
+                   fm.lastval = 24 - fm.lastval;
                 sprintf(fmtbuff, "%d", fm.lastval);
                 showfield(fmtbuff, buff, bufcx, &fm, 1);
                 fmtdone = 1;
                 break;
               case 'x': /* elapsed hours */
                 fm.lastval = (int)(secs2 / 60 / 60);
-                sprintf(fmtbuff, "%.0f", floor(secs2 / 60 / 60));
+                if ( (int)secs2 < 0 )
+                   sprintf(fmtbuff, "%.0f", 0.0 - floor(fabs(secs2) / 60 / 60));
+                else
+                   sprintf(fmtbuff, "%.0f", floor(secs2 / 60 / 60));
                 showfield(fmtbuff, buff, bufcx, &fm, 1);
                 fmtdone = 1;
                 break;
               case 'F': /* elapsed minutes within hour */
                 fm.lastval = (int) fmod( (secs2 / 60), 60);
+                if ( ((int) fmod(secs2,60)) < 0 )
+                   fm.lastval--;
+                if ( fm.lastval < 0 )
+                   fm.lastval = 60 + fm.lastval;
                 sprintf(fmtbuff, "%d", fm.lastval);
                 showfield(fmtbuff, buff, bufcx, &fm, 1);
                 fmtdone = 1;
                 break;
               case 'f': /* elapsed minutes */
                 fm.lastval = (int)(secs2 / 60);
-                sprintf(fmtbuff, "%.0f", floor(secs2 / 60));
+                if ( (int)secs2 < 0 )
+                   sprintf(fmtbuff, "%.0f", 0.0 - floor(fabs(secs2) / 60));
+                else
+                   sprintf(fmtbuff, "%.0f", floor(secs2 / 60));
                 showfield(fmtbuff, buff, bufcx, &fm, 1);
                 fmtdone = 1;
                 break;
               case 'G': /* elapsed seconds within minute */
                 fm.lastval = (int) fmod(secs2, 60);
+                if ( fm.lastval < 0 )
+                   fm.lastval = 60 + fm.lastval;
                 sprintf(fmtbuff, "%d", fm.lastval);
                 showfield(fmtbuff, buff, bufcx, &fm, 1);
                 fmtdone = 1;
                 break;
               case 'g': /* elapsed seconds */
                 fm.lastval = (int)(secs2);
-                sprintf(fmtbuff, "%.0f", floor(secs2));
+                if ( fm.lastval < 0 )
+                   sprintf(fmtbuff, "%.0f", 0.0 - floor(fabs(secs2)));
+                else
+                   sprintf(fmtbuff, "%.0f", floor(secs2));
                 showfield(fmtbuff, buff, bufcx, &fm, 1);
                 fmtdone = 1;
                 break;
@@ -12849,7 +13143,7 @@ FUNCTION(fun_add)
             got_one = 1;
     }
     if (!got_one) {
-       safe_str("#-1 FUNCTION (add) EXPECTS 2 OR MORE ARGUMENTS [RECEIVED ", buff, bufcx);
+       safe_str("#-1 FUNCTION (ADD) EXPECTS 2 OR MORE ARGUMENTS [RECEIVED ", buff, bufcx);
        ival(buff, bufcx, nfargs);
        safe_chr(']', buff, bufcx);
     } else
@@ -12874,7 +13168,7 @@ FUNCTION(fun_mul)
            got_one = 1;
     }
     if (!got_one) {
-       safe_str("#-1 FUNCTION (mul) EXPECTS 2 OR MORE ARGUMENTS [RECEIVED ", buff, bufcx);
+       safe_str("#-1 FUNCTION (MUL) EXPECTS 2 OR MORE ARGUMENTS [RECEIVED ", buff, bufcx);
        ival(buff, bufcx, nfargs);
        safe_chr(']', buff, bufcx);
     } else
@@ -12934,13 +13228,17 @@ FUNCTION(fun_trunc)
 
 FUNCTION(fun_div)
 {
-    int bot;
+    int bot, top;
 
     bot = atoi(fargs[1]);
+    top = 0;
     if (bot == 0) {
        safe_str("#-1 DIVIDE BY ZERO", buff, bufcx);
     } else {
-       ival(buff, bufcx, (atoi(fargs[0]) / bot));
+       top = atoi(fargs[0]);
+       if ( top < -(INT_MAX) )
+          top = -(INT_MAX);
+       ival(buff, bufcx, top / bot);
     }
 }
 
@@ -12954,17 +13252,19 @@ FUNCTION(fun_floordiv)
        safe_str("#-1 DIVIDE BY ZERO", buff, bufcx);
     } else {
        top = atoi(fargs[0]);
+       if ( top < -(INT_MAX) )
+          top = -(INT_MAX);
        if (bot < 0) {
           if (top <= 0) {
-       ival(buff, bufcx, (top / bot));
+             ival(buff, bufcx, (top / bot));
           } else {
-       ival(buff, bufcx, ((top - bot - 1) / bot));
+             ival(buff, bufcx, ((top - bot - 1) / bot));
           }
        } else {
           if (top < 0) {
-       ival(buff, bufcx, ((top - bot + 1) / bot));
+             ival(buff, bufcx, ((top - bot + 1) / bot));
           } else {
-       ival(buff, bufcx, (top / bot));
+             ival(buff, bufcx, (top / bot));
           }
        }
     }
@@ -12984,12 +13284,15 @@ FUNCTION(fun_fdiv)
 
 FUNCTION(fun_mod)
 {
-    int bot;
+    int bot, top;
 
     bot = atoi(fargs[1]);
+    top = atoi(fargs[0]);
     if (bot == 0)
        bot = 1;
-    ival(buff, bufcx, atoi(fargs[0]) % bot);
+    if ( top < -(INT_MAX) )
+       top = -(INT_MAX);
+    ival(buff, bufcx, top % bot);
 }
 
 FUNCTION(fun_fmod)
@@ -13014,9 +13317,11 @@ FUNCTION(fun_modulo)
     if ( bot == 0 )
        bot = 1;
     if (i_top < 0) {
-      if (bot < 0)
+      if (bot < 0) {
+        if ( i_top < -(INT_MAX) )
+           i_top = -(INT_MAX);
         i_top = -(-i_top % -bot);
-      else
+      } else
         i_top = (bot - (-i_top % bot)) % bot;
     } else {
       if (bot < 0)
@@ -13031,6 +13336,30 @@ FUNCTION(fun_pi)
 {
     safe_str("3.141592654", buff, bufcx);
 }
+FUNCTION(fun_ee)
+{
+   double d_ee;
+   int i_ee;
+   char *s_ee;
+
+   if (!fn_range_check("EE", nfargs, 1, 2, buff, bufcx))
+      return;
+
+   i_ee = 2;
+   d_ee = safe_atof(fargs[0]); 
+   if ( (nfargs > 1) && *fargs[1] ) {
+      i_ee = atoi(fargs[1]);
+      if ( i_ee < 0 )
+         i_ee = 0;
+      if ( i_ee > 10 )
+         i_ee = 10;
+   }
+   s_ee = alloc_lbuf("fun_ee");
+   sprintf(s_ee, "%.*E", i_ee, d_ee);
+   safe_str(s_ee, buff, bufcx);
+   free_lbuf(s_ee);
+}
+
 FUNCTION(fun_e)
 {
     safe_str("2.718281828", buff, bufcx);
@@ -14175,6 +14504,23 @@ do_itemfuns(char *buff, char **bufcx, char *str, int el, char *word,
      * are allowed to append to a null string.
      */
 
+/*
+    if ((!str || !*str)) {
+       return;
+    }
+*/
+    if ((!str || !*str) && ((flag != IF_INSERT) || (abs(el) != 1))) {
+        return;
+    }
+
+    if ( el < 0 ) {
+        if ( !str || !*str ) {
+           el = 1;
+        } else {
+           el = countwords(str,sep) + ((flag == IF_INSERT) ? 2 : 1) + el;
+        }
+    }
+
     if ((!str || !*str) && ((flag != IF_INSERT) || (el != 1))) {
         return;
     }
@@ -14267,29 +14613,140 @@ do_itemfuns(char *buff, char **bufcx, char *str, int el, char *word,
      }
 }
 
+int
+sanitize_input_cnt(char *s_base_str, char *s_in_str, char sep, int  *i_len, int i_pos[LBUF_SIZE], int i_key) 
+{
+    char *st_tok, *st_tokptr;
+    int i_tmp, i_found;
 
-FUNCTION(fun_ldelete)
-{       /* delete a word at position X of a list */
-    char sep;
+    *i_len = countwords(s_base_str, sep);
+    if ( *i_len == 0 ) {
+       return(0);
+    }
 
-    varargs_preamble("LDELETE", 3);
-    do_itemfuns(buff, bufcx, fargs[0], atoi(fargs[1]), NULL, sep, IF_DELETE);
+    if ( *i_len > (LBUF_SIZE - 10) ) {
+       *i_len = LBUF_SIZE - 10;
+    }
+ 
+    for (i_tmp = 0; i_tmp < LBUF_SIZE; i_tmp++) {
+       i_pos[i_tmp]=0;
+    }
+    
+    i_found=0;
+    st_tok = strtok_r(s_in_str, " \t", &st_tokptr);
+    while ( st_tok ) {
+       i_tmp=atoi(st_tok);
+       if ( i_tmp < 0 ) {
+          if ( i_key == IF_INSERT ) {
+             i_tmp += *i_len + 2;
+          } else {
+             i_tmp += *i_len + 1;
+          }
+       } 
+       if ( ((i_tmp <= *i_len) || ((i_tmp <= (*i_len + 1)) && (i_key == IF_INSERT))) && (i_tmp >= 0) ) {
+          i_found = i_pos[i_tmp] = 1;
+       }          
+       st_tok = strtok_r(NULL, " \t", &st_tokptr);
+    }
+
+    if ( !i_found ) {
+       return(0);
+    }
+   
+    return(1);
 }
 
 FUNCTION(fun_replace)
 {       /* replace a word at position X of a list */
-    char sep;
+    char sep, *st_tmp, *st_tmpptr, *st_mash;
+    int i_pos[LBUF_SIZE], i_tmp, i_len, i_found;
 
     varargs_preamble("REPLACE", 4);
-    do_itemfuns(buff, bufcx, fargs[0], atoi(fargs[1]), fargs[2], sep, IF_REPLACE);
+
+    i_len=0;
+    i_found = sanitize_input_cnt((char *)fargs[0], (char *)fargs[1], sep, &i_len, (int *)&i_pos, IF_REPLACE);
+    if ( !i_found ) {
+       safe_str(fargs[0], buff, bufcx);
+       return;
+    }
+
+    st_tmpptr = st_tmp = alloc_lbuf("fun_replace");
+    st_mash = alloc_lbuf("fun_replace2");
+    memcpy(st_mash, fargs[0], LBUF_SIZE);
+
+    for (i_tmp = (i_len + 2); i_tmp>=0; i_tmp--) {
+       if ( i_pos[i_tmp] == 1 ) {
+          do_itemfuns(st_tmp, &st_tmpptr, st_mash, i_tmp, fargs[2], sep, IF_REPLACE);
+          st_tmpptr=st_tmp;
+          memcpy(st_mash, st_tmp, LBUF_SIZE);
+       }
+    }
+
+    safe_str(st_tmp, buff, bufcx);
+    free_lbuf(st_tmp);
+    free_lbuf(st_mash);
+}
+
+FUNCTION(fun_ldelete)
+{       /* delete a word at position X of a list */
+    char sep, *st_tmp, *st_tmpptr, *st_mash;
+    int i_pos[LBUF_SIZE], i_tmp, i_len, i_found;
+
+    varargs_preamble("LDELETE", 3);
+
+    i_len=0;
+    i_found = sanitize_input_cnt((char *)fargs[0], (char *)fargs[1], sep, &i_len, (int *)&i_pos, IF_DELETE);
+    if ( !i_found ) {
+       safe_str(fargs[0], buff, bufcx);
+       return;
+    }
+
+    st_tmpptr = st_tmp = alloc_lbuf("fun_replace");
+    st_mash = alloc_lbuf("fun_replace2");
+    memcpy(st_mash, fargs[0], LBUF_SIZE);
+
+    for (i_tmp = (i_len + 2); i_tmp>=0; i_tmp--) {
+       if ( i_pos[i_tmp] == 1 ) {
+          do_itemfuns(st_tmp, &st_tmpptr, st_mash, i_tmp, NULL, sep, IF_DELETE);
+          st_tmpptr=st_tmp;
+          memcpy(st_mash, st_tmp, LBUF_SIZE);
+       }
+    }
+
+    safe_str(st_tmp, buff, bufcx);
+    free_lbuf(st_tmp);
+    free_lbuf(st_mash);
 }
 
 FUNCTION(fun_insert)
 {       /* insert a word at position X of a list */
-    char sep;
+    char sep, *st_tmp, *st_tmpptr, *st_mash;
+    int i_pos[LBUF_SIZE], i_tmp, i_len, i_found;
 
     varargs_preamble("INSERT", 4);
-    do_itemfuns(buff, bufcx, fargs[0], atoi(fargs[1]), fargs[2], sep, IF_INSERT);
+
+    i_len=0;
+    i_found = sanitize_input_cnt((char *)fargs[0], (char *)fargs[1], sep, &i_len, (int *)&i_pos, IF_INSERT);
+    if ( !i_found ) {
+       safe_str(fargs[0], buff, bufcx);
+       return;
+    }
+
+    st_tmpptr = st_tmp = alloc_lbuf("fun_replace");
+    st_mash = alloc_lbuf("fun_replace2");
+    memcpy(st_mash, fargs[0], LBUF_SIZE);
+
+    for (i_tmp = (i_len + 2); i_tmp>=0; i_tmp--) {
+       if ( i_pos[i_tmp] == 1 ) {
+          do_itemfuns(st_tmp, &st_tmpptr, st_mash, i_tmp, fargs[2], sep, IF_INSERT);
+          st_tmpptr=st_tmp;
+          memcpy(st_mash, st_tmp, LBUF_SIZE);
+       }
+    }
+
+    safe_str(st_tmp, buff, bufcx);
+    free_lbuf(st_tmp);
+    free_lbuf(st_mash);
 }
 
 /* ---------------------------------------------------------------------------
@@ -15216,9 +15673,9 @@ FUNCTION(fun_capstr)
  **/
 FUNCTION(fun_caplist)
 {
-    char *curr, *osep, *sep, style, *wordlist;
-    int bFirst, len, pos;
-
+    char *curr, *osep, *sep, style, *wordlist, *t_str, *s_tok, *s_tokr;
+    int bFirst, len, pos, i_found, i_last, i_first, i_lastchk;
+    
     // We aren't allowed more than 4 args here.
     if( !fn_range_check( "CAPLIST", nfargs, 1, 4, buff, bufcx ) )
       return;
@@ -15232,11 +15689,16 @@ FUNCTION(fun_caplist)
     osep = ( fargs[2] && *fargs[2] ) ? fargs[2] : sep;
     style = ( fargs[3] && *fargs[3] ) ? *fargs[3] : 'N';
     wordlist = trim_space_sep( fargs[0], *sep );
+    i_last = countwords( fargs[0], *sep );
+    i_first = i_found = 0;
+
     if ( !*wordlist ) {
        return;
     }
     
-    bFirst = 1;
+    t_str = alloc_lbuf("caplist");
+
+    bFirst = i_lastchk = 1;
     do
     {
       // Set the current word.
@@ -15266,6 +15728,59 @@ FUNCTION(fun_caplist)
 	  }
 	  break;
 
+        // True capitilization -- Title NIVA standards
+        case 'T':
+          i_found = 0;
+          if ( i_first && (i_last != i_lastchk) && *(mudconf.cap_conjunctions) ) {
+             memcpy(t_str, mudconf.cap_conjunctions, LBUF_SIZE-2);
+             s_tok = strtok_r(t_str, " ", &s_tokr);
+             while ( s_tok ) {
+                if ( stricmp(s_tok, curr) == 0 ) {
+                   i_found = 1;
+                   break;
+                }
+                s_tok = strtok_r(NULL, " ", &s_tokr);
+             }
+          }
+          if ( i_first && (i_last != i_lastchk) && !i_found && *(mudconf.cap_articles) ) {
+             memcpy(t_str, mudconf.cap_articles, LBUF_SIZE-2);
+             s_tok = strtok_r(t_str, " ", &s_tokr);
+             while ( s_tok ) {
+                if ( stricmp(s_tok, curr) == 0 ) {
+                   i_found = 1;
+                   break;
+                }
+                s_tok = strtok_r(NULL, " ", &s_tokr);
+             }
+          }
+          if ( i_first && (i_last != i_lastchk) && !i_found && *(mudconf.cap_preposition) ) {
+             memcpy(t_str, mudconf.cap_preposition, LBUF_SIZE-2);
+             s_tok = strtok_r(t_str, " ", &s_tokr);
+             while ( s_tok ) {
+                if ( stricmp(s_tok, curr) == 0 ) {
+                   i_found = 1;
+                   break;
+                }
+                s_tok = strtok_r(NULL, " ", &s_tokr);
+             }
+          }
+          if ( !i_found || !i_first || (i_lastchk == i_last) ) {
+             safe_chr( ToUpper( *curr ), buff, bufcx );
+          } else {
+             safe_chr( ToLower( *curr ), buff, bufcx );
+          }
+          i_first = 1;
+	  len = strlen( curr );
+	  pos = 0;
+	  while( pos < len )
+	  {
+	    if( *curr && *( curr + 1 ) && pos > 0 )
+	      safe_chr( ToLower( curr[pos] ), buff, bufcx );
+	    pos++;
+	  }
+          i_lastchk++;
+          break;
+
 	// Capitalize the first letter of every word
 	// Leave the rest of each word as natural.
         case 'N':
@@ -15277,6 +15792,7 @@ FUNCTION(fun_caplist)
       }
     }
     while( wordlist );
+    free_lbuf(t_str);
     return;
 }
 
@@ -16512,12 +17028,17 @@ FUNCTION(fun_strmath)
                          break;
                case '/': if ( i_base == 0 )
                             i_val = i_number;
-                         else
+                         else {
+                            if ( i_number < -(INT_MAX) )
+                               i_number = -(INT_MAX);
                             i_val = i_number / i_base;
+                         }
                          break;
                case '*': i_val = i_number * i_base;
                          break;
-               case '%': i_val = i_number % i_base;
+               case '%': if ( i_number < -(INT_MAX) )
+                            i_number = -(INT_MAX);
+                         i_val = i_number % i_base;
                          break;
                default : i_val = i_number + i_base;
                          break;
@@ -16541,9 +17062,22 @@ FUNCTION(fun_strmath)
 FUNCTION(fun_objeval)
 {
     dbref obj;
+    int prev_nocode;
     char *result, *cp;
 
+    if (!fn_range_check("OBJEVAL", nfargs, 2, 3, buff, bufcx))
+       return;
     mudstate.objevalst = 0;
+    prev_nocode = mudstate.nocodeoverride;
+
+    if ( (nfargs >= 3) && *fargs[2] && Wizard(player) ) {
+       cp = exec(player, cause, caller, EV_STRIP | EV_FCHECK | EV_EVAL, fargs[2],
+                 cargs, ncargs);
+       if ( cp && *cp && (atoi(cp) > 0) ) {
+          mudstate.nocodeoverride = 1;
+       }
+       free_lbuf(cp);
+    }
     cp = exec(player, cause, caller, EV_STRIP | EV_FCHECK | EV_EVAL, fargs[0],
               cargs, ncargs);
     init_match(player, cp, NOTYPE);
@@ -16563,6 +17097,7 @@ FUNCTION(fun_objeval)
     }
     safe_str(result, buff, bufcx);
     free_lbuf(result);
+    mudstate.nocodeoverride = prev_nocode;
     mudstate.objevalst = 0;
 }
 
@@ -17740,8 +18275,13 @@ FUNCTION(fun_map)
     if ( (nfargs > 3) ) {
        if ( *fargs[3] )
           strcpy(osep, fargs[3]);
-       else
-          memset(osep, '\0', LBUF_SIZE);
+       else {
+          if ( mudconf.map_delim_space ) {
+             sprintf(osep, "%c", ' ');
+          } else {
+             memset(osep, '\0', LBUF_SIZE);
+          }
+       }
     } else {
        sprintf(osep, "%c", sep);
     }
@@ -18474,7 +19014,7 @@ FUNCTION(fun_caseall)
 
 FUNCTION(fun_ifelse)
 {
-    char *mbuff, *tbuff;
+    char *mbuff, *tbuff, *retbuff;
 
     /* If we don't have at least 2 args, return nothing */
 
@@ -18485,16 +19025,29 @@ FUNCTION(fun_ifelse)
 
     mbuff = exec(player, cause, caller, EV_STRIP | EV_FCHECK | EV_EVAL,
                  fargs[0], cargs, ncargs);
-
-
+    retbuff = NULL;
     if (atoi(mbuff)) {
-        tbuff = exec(player, cause, caller, EV_STRIP | EV_FCHECK | EV_EVAL,
-                     fargs[1], cargs, ncargs);
+        if ( mudconf.switch_substitutions ) {
+           retbuff = replace_tokens(fargs[1], NULL, NULL, mbuff);
+           tbuff = exec(player, cause, caller, EV_STRIP | EV_FCHECK | EV_EVAL,
+                        retbuff, cargs, ncargs);
+           free_lbuf(retbuff);
+        } else {
+           tbuff = exec(player, cause, caller, EV_STRIP | EV_FCHECK | EV_EVAL,
+                        fargs[1], cargs, ncargs);
+        }
         safe_str(tbuff, buff, bufcx);
         free_lbuf(tbuff);
     } else if (nfargs == 3) {
-        tbuff = exec(player, cause, caller, EV_STRIP | EV_FCHECK | EV_EVAL,
-                     fargs[2], cargs, ncargs);
+        if ( mudconf.switch_substitutions ) {
+           retbuff = replace_tokens(fargs[2], NULL, NULL, mbuff);
+           tbuff = exec(player, cause, caller, EV_STRIP | EV_FCHECK | EV_EVAL,
+                        retbuff, cargs, ncargs);
+           free_lbuf(retbuff);
+        } else {
+           tbuff = exec(player, cause, caller, EV_STRIP | EV_FCHECK | EV_EVAL,
+                        fargs[2], cargs, ncargs);
+        }
         safe_str(tbuff, buff, bufcx);
         free_lbuf(tbuff);
     }
@@ -22861,6 +23414,8 @@ FUN flist[] =
     {"CHILDREN", fun_children, 1, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"CHARIN", fun_charin, 1, FN_VARARGS, CA_WIZARD, 0},
     {"CHAROUT", fun_charout, 1, FN_VARARGS, CA_WIZARD, 0},
+    {"CHECKPASS", fun_checkpass,  2, 0, CA_WIZARD, 0},
+    {"CHKGARBAGE", fun_chkgarbage, 2, 0, CA_WIZARD, CA_NO_CODE},
 #ifdef REALITY_LEVELS
     {"CHKREALITY", fun_chkreality, 2, 0, CA_PUBLIC, CA_NO_CODE},
 #endif /* REALITY_LEVELS */
@@ -22953,6 +23508,7 @@ FUN flist[] =
     {"DOING", fun_doing, 1, FN_VARARGS, CA_WIZARD, 0},
     {"DYNHELP", fun_dynhelp, 2, FN_VARARGS, CA_WIZARD, 0},
     {"E", fun_e, 0, 0, CA_PUBLIC, CA_NO_CODE},
+    {"EE", fun_ee, 1, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"EDEFAULT", fun_edefault, 2, FN_NO_EVAL, CA_PUBLIC, CA_NO_CODE},
     {"EDIT", fun_edit, 3, FN_VARARGS, CA_PUBLIC, 0},
     {"ELEMENTS", fun_elements, 0, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
@@ -23106,6 +23662,7 @@ FUN flist[] =
     {"LOG", fun_log, 1, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"LOGTOFILE", fun_logtofile, 2, 0, CA_IMMORTAL, 0},
     {"LOGSTATUS", fun_logstatus, 0, 0, CA_IMMORTAL, 0},
+    {"LOOKUP_SITE", fun_lookup_site, 1, FN_VARARGS, CA_WIZARD, CA_NO_CODE},
     {"LOR", fun_lor, 0, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"LPOWERS", fun_lpowers, 1, 0, CA_WIZARD, 0},
     {"LRAND", fun_lrand, 0, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
@@ -23170,7 +23727,7 @@ FUN flist[] =
     {"NUMMEMBER", fun_nummember, 0, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"NUMPOS", fun_numpos, 2, 0, CA_PUBLIC, CA_NO_CODE},
     {"OBJ", fun_obj, 1, 0, CA_PUBLIC, 0},
-    {"OBJEVAL", fun_objeval, 2, FN_NO_EVAL, CA_PUBLIC, CA_NO_CODE},
+    {"OBJEVAL", fun_objeval, 2, FN_NO_EVAL|FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
 #ifdef USE_SIDEEFFECT
     {"OEMIT", fun_oemit, 2, 0, CA_PUBLIC, CA_NO_CODE},
     {"OPEN", fun_open, 1, FN_VARARGS, CA_PUBLIC, 0},
@@ -23335,7 +23892,7 @@ FUN flist[] =
 #endif
     {"TEXTFILE", fun_textfile, 1, FN_VARARGS, CA_WIZARD, 0},
     {"TIME", fun_time, 0, 0, CA_PUBLIC, CA_NO_CODE},
-    {"TIMEFMT", fun_timefmt, 2, 0, CA_PUBLIC, CA_NO_CODE},
+    {"TIMEFMT", fun_timefmt, 2, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"TOBIN", fun_tobin, 1, 0, CA_PUBLIC, CA_NO_CODE},
     {"TODEC", fun_todec, 1, 0, CA_PUBLIC, CA_NO_CODE},
 #ifdef USE_SIDEEFFECT
@@ -23491,7 +24048,7 @@ do_function(dbref player, dbref cause, int key, char *fname, char *target)
 {
     UFUN *ufp, *ufp2, *ufp3;
     ATTR *ap;
-    char *np, *bp, *tpr_buff, *tprp_buff, *atext, *tpr2_buff, *tprp2_buff;
+    char *np, *bp, *tpr_buff, *tprp_buff, *atext, *tpr2_buff, *tprp2_buff, s_minargs[4], s_maxargs[4];
     int atr, aflags, count, i_tcount;
     dbref obj, aowner;
 
@@ -23503,6 +24060,35 @@ do_function(dbref player, dbref cause, int key, char *fname, char *target)
 
     if ( (key & FN_DEL) && !*fname ) {
        notify(player, "Delete what function?");
+       return;
+    }
+    if ( (key & (FN_MAX|FN_MIN)) ) {
+       tprp_buff = tpr_buff = alloc_lbuf("do_function");
+       bp = np = alloc_sbuf("add_user_func");
+       safe_sb_str(fname, np, &bp);
+       *bp = '\0';
+       for (bp = np; *bp; bp++)
+          *bp = ToLower((int)*bp);
+       ufp = (UFUN *) hashfind(np, &mudstate.ufunc_htab);
+       if ( !ufp ) {
+          notify_quiet(player, safe_tprintf(tpr_buff, &tprp_buff, "Function %s not found.", fname));
+       } else {
+          i_tcount = atoi(target);
+          if ( !(((i_tcount > 0) && (i_tcount < MAX_ARGS)) || (i_tcount == -1)) ) {
+             notify_quiet(player, safe_tprintf(tpr_buff, &tprp_buff, 
+                          "Value out of range.  Expect -1 or between 1 and %d.", MAX_ARGS - 1));
+          } else {
+             if ( key & FN_MIN) {
+                notify_quiet(player, safe_tprintf(tpr_buff, &tprp_buff, "Function %s MINARGS set to %d.", fname, i_tcount));
+                ufp->minargs = i_tcount;
+             } else {
+                notify_quiet(player, safe_tprintf(tpr_buff, &tprp_buff, "Function %s MAXARGS set to %d.", fname, i_tcount));
+                ufp->maxargs = i_tcount;
+             }
+          }
+       }
+       free_sbuf(np);
+       free_lbuf(tpr_buff);
        return;
     }
     if ( (key & FN_DISPLAY) && Wizard(player) ) {
@@ -23527,10 +24113,12 @@ do_function(dbref player, dbref cause, int key, char *fname, char *target)
                                          "Function Name: %s\n"\
                                          "Target Object: #%d\n"\
                                          "Attribute Name: %s\n"\
+                                         "Arguments: min %d, max %d\n"\
                                          "Permissions:%s%s%s",
                                          ufp->name, 
                                          ufp->obj, 
                                          ((ap != NULL) ? ap->name : "(DELETED)"),
+                                         ufp->minargs, ufp->maxargs,
                                          ((ufp->flags & FN_PRIV) ? " WIZARD " : " "),
                                          ((ufp->flags & FN_PRES) ? "PRESERVED " : " "),
                                          ((ufp->flags & FN_PROTECT) ? "PROTECTED" : " ")) );
@@ -23560,13 +24148,15 @@ do_function(dbref player, dbref cause, int key, char *fname, char *target)
     }
     if ( (key & FN_LIST) || !*fname || !fname ) {
        tprp_buff = tpr_buff = alloc_lbuf("do_function");
-       notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%-28s   %-8s  %-30s Flgs",
+       notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%-24s   %-8s  %-26s Min/Max Flgs",
               "Function Name", "DBref#", "Attribute"));
        tprp_buff = tpr_buff;
-       notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%28s   %8s  %30s %4s",
-              "----------------------------", "--------",
-              "------------------------------", " ---"));
+       notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%24s   %8s  %26s %3s %3s %-4s",
+              "------------------------", "--------",
+              "--------------------------", "---", "---", "---"));
        i_tcount = count = 0;
+       memset(s_minargs, '\0', sizeof(s_minargs));
+       memset(s_maxargs, '\0', sizeof(s_maxargs));
        for (ufp2 = ufun_head; ufp2; ufp2 = ufp2->next) {
           ap = atr_num(ufp2->atr);
           if (ap) {
@@ -23576,22 +24166,40 @@ do_function(dbref player, dbref cause, int key, char *fname, char *target)
                    continue;
              }
              tprp_buff = tpr_buff;
+             if ( ufp2->maxargs == -1 ) {
+                if ( ufp2->minargs != -1 ) {
+                   strcpy(s_maxargs, (char *)"Inf");
+                } else {
+                   strcpy(s_maxargs, (char *)"   ");
+                }
+             } else {
+                sprintf(s_maxargs, "%-3d", ufp2->maxargs);
+             }
+             if ( ufp2->minargs == -1 ) {
+                if ( ufp2->maxargs != -1 ) {
+                   sprintf(s_minargs, "%-3d", (int) 1);
+                } else {
+                   strcpy(s_minargs, (char *)"   ");
+                }
+             } else {
+                sprintf(s_minargs, "%-3d", ufp2->minargs);
+             }
              if (!(ufp2->flags & FN_PRIV) || Wizard(player)) {
-                notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%-28.28s   #%-7d  %-30.30s  %c%c%c",
-                       ufp2->name, ufp2->obj, ap->name, ((ufp2->flags & FN_PRIV) ? 'W' : '-'),
+                notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%-24.24s   #%-7d  %-26.26s %-3s %-3s %c%c%c",
+                       ufp2->name, ufp2->obj, ap->name, s_minargs, s_maxargs, ((ufp2->flags & FN_PRIV) ? 'W' : '-'),
                        ((ufp2->flags & FN_PRES) ? 'p' : '-'), ((ufp2->flags & FN_PROTECT) ? '+' : '-')));
              } else {
-                notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%-28.28s   #%-7d  %-30.30s  %c%c",
-                       ufp2->name, ufp2->obj, "(INVALID ATTRIBUTE)", ((ufp2->flags & FN_PRIV) ? 'W' : '-'),
+                notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%-24.24s   #%-7d  %-26.26s %-3s %-3s %c%c%c",
+                       ufp2->name, ufp2->obj, "(INVALID ATTRIBUTE)", s_minargs, s_maxargs, ((ufp2->flags & FN_PRIV) ? 'W' : '-'),
                        ((ufp2->flags & FN_PRES) ? 'p' : '-'), ((ufp2->flags & FN_PROTECT) ? '+' : '-')));
              }
              count++;
           }
        }
        tprp_buff = tpr_buff;
-       notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%28s   %8s  %30s %4s",
-              "----------------------------", "--------",
-              "------------------------------", " ---"));
+       notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%24s   %8s  %26s %3s %3s %-4s",
+              "------------------------", "--------",
+              "--------------------------", "---", "---", "---"));
        tprp_buff = tpr_buff;
        if ( i_tcount != count )
           notify(player, safe_tprintf(tpr_buff, &tprp_buff, "Total User-Defined Functions: %d [%d matched]", i_tcount, count));
@@ -23703,6 +24311,8 @@ do_function(dbref player, dbref cause, int key, char *fname, char *target)
          *bp = ToUpper((int)*bp);
       ufp->obj = obj;
       ufp->atr = atr;
+      ufp->minargs = -1;
+      ufp->maxargs = -1;
       ufp->perms = CA_PUBLIC;
       ufp->perms2 = 0;
       ufp->next = NULL;

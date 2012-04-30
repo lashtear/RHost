@@ -7,7 +7,7 @@
 #define UINT32 unsigned int
 #endif
 #ifndef UINT8
-#define UINT8 unsigned short int
+#define UINT8 unsigned char
 #endif
 
 typedef struct

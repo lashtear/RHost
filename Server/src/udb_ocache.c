@@ -224,7 +224,8 @@ cache_init(int width, int depth)
 
 	for(x = 0; x < cwidth; x++, sp++) {
 		sp->active.head = sp->old.head = (Cache *)0;
-		sp->old.tail = sp->old.tail = (Cache *)0;
+		/* sp->old.tail = sp->old.tail = (Cache *)0; */
+		sp->active.tail = sp->old.tail = (Cache *)0;
 		sp->mactive.head = sp->mold.head = (Cache *)0;
 		sp->mactive.tail = sp->mold.tail = (Cache *)0;
 		sp->count = cdepth;

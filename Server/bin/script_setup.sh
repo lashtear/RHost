@@ -1,4 +1,11 @@
 #!/bin/sh
+if [ ! -d ../Server/bin ]
+then
+   echo "You can not run this script from the current directory."
+   echo "Run this script from the 'Server' directory."
+   echo "Then type ./bin/script_setup.sh"
+   exit 1
+fi
 LOCATE=""
 if [ -f /bin/bash ]
 then

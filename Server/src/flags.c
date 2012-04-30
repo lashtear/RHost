@@ -560,7 +560,7 @@ fh_byeroom_bit(dbref target, dbref player, FLAG flag, int fflags, int reset)
     if (isRoom(target) && Byeroom(target) && reset) {
 	notify(player, "Your room has been spared from destruction.");
 	if (fh_any(target, player, flag, fflags, reset)) {
-	  s_Flags3(target,Flags3(target) &= ~DR_PURGE);
+	  s_Flags3(target,Flags3(target) & ~DR_PURGE);
 	  return 1;
 	}
 	else
@@ -625,7 +625,7 @@ TOGENT tog_table[] =
 {
   {"MONITOR", TOG_MONITOR, 'M', 0, CA_BUILDER, th_monitor},
   {"MONITOR_USERID", TOG_MONITOR_USERID, 'U', 0, CA_WIZARD, th_wiz},
-  {"MONITOR_SITE", TOG_MONITOR_SITE, 'S', 0, CA_WIZARD, th_wiz},
+  {"MONITOR_SITE", TOG_MONITOR_SITE, 'S', 0, CA_IMMORTAL, th_immortal},
   {"MONITOR_STATS", TOG_MONITOR_STATS, 'T', 0, CA_WIZARD, th_wiz},
   {"MONITOR_FAIL", TOG_MONITOR_FAIL, 'F', 0, CA_WIZARD, th_wiz},
   {"MONITOR_CONN", TOG_MONITOR_CONN, 'C', 0, CA_IMMORTAL, th_immortal},
@@ -685,6 +685,7 @@ TOGENT tog_table[] =
   {"ACCENTS", TOG_ACCENTS, 'X', 1, 0, th_player},
   {"MAILVALIDATE", TOG_PREMAILVALIDATE, '-', 1, 0, th_player},
   {"CLUSTER", TOG_CLUSTER, '~', 0, CA_IMMORTAL, th_noset},
+  {"SAFELOG", TOG_SAFELOG, 'Y', 1, 0, th_player},
   {NULL, 0, ' ', 0, 0, NULL}
 };
 

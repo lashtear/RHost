@@ -29,6 +29,8 @@ typedef struct ufun {
 	int	flags;		/* Function flags */
 	int	perms;		/* Access to function */
 	int	perms2;
+	int	minargs;	/* minimum args expected - optional */
+	int	maxargs;	/* maximum args expected - optional */
 	struct ufun *next;	/* Next ufun in chain */
 } UFUN;
 
@@ -41,6 +43,8 @@ typedef struct ufun {
 #define FN_BYPASS      64       /* Bypass function restriction */
 #define FN_DISPLAY    128	/* Display function */
 #define FN_PROTECT    256	/* Private the variables - assumes FN_PRES */
+#define FN_MIN        512	/* Min value */
+#define FN_MAX       1024       /* Max value */
 
 extern void	NDECL(init_functab);
 extern void	FDECL(list_functable, (dbref));

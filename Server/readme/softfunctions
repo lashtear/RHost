@@ -19,7 +19,7 @@
 &FUN_ITEMIZE soft=[elist(%0,%2,%1,%4,%3)]
 &FUN_LPARENT soft=[localize([setr(0,num(%0))] [setdiff(parents(r(0)),#-1 #-2)])]
 &FUN_STRTRUNC soft=[mid(%0,0,%1)]
-&FUN_EXPTIME soft=[timefmt($!Zy $!emo $!Cd $!Xh $!Fm $Gs,%0)]
+&FUN_EXPTIME soft=[timefmt($!Zy $!EM $!Cd $!Xh $!Fm $Gs,%0)]
 &FUN_WRITETIME soft=[timefmt($!Z years $!e months $!C days $!X hours $!F minutes $!G seconds,%0)]
 &FUN_DIGITTIME soft=[timefmt($!cd $02X:$02F,v(0))]
 &FUN_PICKRAND soft=[randextract(%0,1,%1)]
@@ -32,6 +32,9 @@
 &FUN_FN soft=[bypass(1)][strfunc(%0,%1 %2 %3 %4 %5 %6 %7 %8 %9)][bypass(0)]
 &FUN_LETQ soft=[ifelse(mod(%+,2),[step(#lambda/[lit([setq(s(%0),s(%1))])],[iter(lnum(0,sub(%+,2)),[v(##)],,~)],2,~)][eval([v(sub(%+,1))])],#-1 FUNCTION %(letq%) EXPECTS AN ODD NUMBER OF ARGUMENTS)]
 &FUNFLAG_LETQ soft=no_eval
+&FUNPR_NAMEGRAB soft=[setq(0,)][iter(%0,ifelse(strmatch(name(##),%1),##[setq(0,)][ibreak(0)],ifelse(and(!$r(0),strmatch(name(##),*%1*)),setq(0,##))),,)]%q0
+&FUN_NAMEGRABALL soft=[trim(squish(iter(%0,ifelse(strmatch(name(##),*%1*),##))))]
+&FUNPR_NAMELIST soft=[iter(%0,ifelse(!match(setr(0,pmatch(##)),#-1*),%q0,#-1[objeval(%#,u(%1,##,#-1))]))]
 @fo softfunc=&DB me=num(softfunc)
 @startup softfunc=@dolist lattr([v(db)]/fun_*)=@function [after(##,_)]=[v(db)]/##;@dolist lattr([v(db)]/funp_*)=@function/priv/pres [after(##,_)]=[v(db)]/##;@dolist lattr([v(DB)]/funpr_*)=@function/pres [after(##,_)]=[v(DB)]/##;@dolist lattr([v(db)]/funpv_*)=@function/priv [after(##,_)]=[v(DB)]/##;@wait 10={@dolist lattr([v(db)]/funflag_*)=@admin function_access=[after(##,_)] [get([v(db)]/##)]}
 @@ think Issue this command:  @dolist search\(flags=P\)=@swi \[words\(get\(##/race\)\)\]=0,@cpattr/clear ##/RACE=##/race

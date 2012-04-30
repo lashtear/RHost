@@ -49,7 +49,7 @@ static long  queryCount = 0;
 static long  numConnectionsMade = 0;
 static long  numRowsRetrieved = 0;
 static dbref lastConnectMadeBy = -1;
-extern int NDECL(next_timer);
+
 int sql_shutdown(dbref player);
 static int sql_init(dbref player);
 static int sql_query(dbref player, 
@@ -153,7 +153,7 @@ FUNCTION(local_fun_sql_disconnect) {
 FUNCTION(local_fun_sql_escape) {
   MYSQL *mysql;
   int retries;
-  static char bigbuff[LBUF_SIZE * 2 + 1];
+  static char bigbuff[LBUF_SIZE * 2 + 1], *s_localchr;
 
   if (!fargs[0] || !*fargs[0])
     return;
@@ -178,12 +178,17 @@ FUNCTION(local_fun_sql_escape) {
     return;
   }
   
-  if (mysql_real_escape_string(mysql, bigbuff, fargs[0], strlen(fargs[0])) < LBUF_SIZE) {
-    bigbuff[3999] = '\0';
+  s_localchr = alloc_lbuf("local_fun_sql_escape");
+  memset(s_localchr, '\0', LBUF_SIZE);
+  strncpy(s_localchr, fargs[0], LBUF_SIZE-2);
+  if (mysql_real_escape_string(mysql, bigbuff, s_localchr, strlen(s_localchr)) < LBUF_SIZE) {
+    bigbuff[LBUF_SIZE - 1] = '\0';
+    bigbuff[LBUF_SIZE - 2] = '\0';
     safe_str(bigbuff, buff, bufcx);
   } else {
     safe_str("#-1 TOO LONG", buff, bufcx);
   }
+  free_lbuf(s_localchr);
 }
 
 void local_mysql_init(void) {
@@ -308,7 +313,7 @@ static int sql_query(dbref player,
   int num_rows, got_rows, got_fields;
   int i, j;
   int retries;
-  char *tpr_buff, *tprp_buff;
+  char *tpr_buff, *tprp_buff, *s_qstr;
   
   /* If we have no connection, and we don't have auto-reconnect on
    * (or we try to auto-reconnect and we fail), this is an error
@@ -340,14 +345,19 @@ static int sql_query(dbref player,
   /* Send the query. */
   
   alarm(5);
-  got_rows = mysql_real_query(mysql, q_string, strlen(q_string));
+  s_qstr = alloc_lbuf("tmp_q_string");
+  memset(s_qstr, '\0', LBUF_SIZE);
+  strncpy(s_qstr, q_string, LBUF_SIZE - 2);
+  got_rows = mysql_real_query(mysql, s_qstr, strlen(s_qstr));
   if ( mudstate.alarm_triggered ) {
      notify(player, "The SQL engine forced a failure on a timeout.");
      sql_shutdown(player);
      mudstate.alarm_triggered = 0;
      alarm(next_timer());
+     free_lbuf(s_qstr);
      return 0;
   }
+  free_lbuf(s_qstr);
   mudstate.alarm_triggered = 0;
   alarm(next_timer());
 
@@ -373,14 +383,19 @@ static int sql_query(dbref player,
     
     if (mysql) {
       alarm(5);
-      got_rows = mysql_real_query(mysql, q_string, strlen(q_string));
+      s_qstr = alloc_lbuf("tmp_q_string");
+      memset(s_qstr, '\0', LBUF_SIZE);
+      strncpy(s_qstr, q_string, LBUF_SIZE - 2);
+      got_rows = mysql_real_query(mysql, s_qstr, strlen(s_qstr));
       if ( mudstate.alarm_triggered ) {
          notify(player, "The SQL engine forced a failure on a timeout.");
          sql_shutdown(player);
          mudstate.alarm_triggered = 0;
          alarm(next_timer());
+         free_lbuf(s_qstr);
          return 0;
       }
+      free_lbuf(s_qstr);
       mudstate.alarm_triggered = 0;
       alarm(next_timer());
     }
@@ -423,27 +438,25 @@ static int sql_query(dbref player,
   if (buff) {
     for (i = 0; i < got_rows; i++) {
       if (i > 0) {
-        if ( row_delim != '\0' ) {
+        if ( row_delim != '\0' )
 	   print_sep(row_delim, buff, bp);
-	}
-        else {
+        else
 	   print_sep(' ', buff, bp);
-	}
       }
       row_p = mysql_fetch_row(qres);
       if (row_p) {
 	got_fields = mysql_num_fields(qres);
 	for (j = 0; j < got_fields; j++) {
 	  if (j > 0) {
-             if ( field_delim != '\0' ) {
+             if ( field_delim != '\0' )
 	       print_sep(field_delim, buff, bp);
-		}
-             else {
+             else
 	       print_sep(' ', buff, bp);
-		}
 	  }
 	  if (row_p[j] && *row_p[j])
 	    safe_str(row_p[j], buff, bp);
+          else if ( !row_p[j] )
+            break;
 	}
       }
     }
@@ -457,6 +470,8 @@ static int sql_query(dbref player,
 	  if (row_p[j] && *row_p[j]) {
 	    notify(player, safe_tprintf(tpr_buff, &tprp_buff, "Row %d, Field %d: %.3900s",
 				   i + 1, j + 1, row_p[j]));
+          } else if ( !row_p[j] ) {
+            break;
 	  } else {
 	    notify(player, safe_tprintf(tpr_buff, &tprp_buff, "Row %d, Field %d: NULL", i + 1, j + 1));
 	  }

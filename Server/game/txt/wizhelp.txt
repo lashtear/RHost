@@ -2301,7 +2301,7 @@
   See Also: AUTOREGISTRATION  
 
 & @function
-  Command: @function[/<switches>] [<function>] [=<object>/<attr>]
+  Command: @function[/<switches>] [<function>] [=<object>/<attr> | <value>]
    
   This command creates a global function named <function>.  When invoked,
   the arguments to the function are loaded into %0-%9, the <attr> attribute
@@ -2316,6 +2316,10 @@
     /delete     - delete the specified user-defined function.
     /display    - displays the details of the specified function.
     /protect    - all setq registers called in a localized function are nulled.
+    /max        - Set the maximum number of arguments for the function.
+                  The default is '-1' or unlimited.
+    /min        - Set the minimum number of arguments for the function.
+                  The default is '-1' or 0.
   
   The function definitions created by @function are not stored in the database
   so they need to be re-created each time the RhostMUSH is started.  It is
@@ -2338,11 +2342,15 @@
              @function/list
              @function/display myfunction
              @function/delete myfunction
+             @function/max myfunction=5
+             @function/min myfunction=3
   
   Note: With the /list switch, the following letters represent the following:
              W - privalaged
              p - preserved
              + - protected
+  
+  You will see the MAX and MIN fields only if they are outside the defaults. 
   
   See Also: @attribute 
  
@@ -4383,7 +4391,8 @@
   attr_cmd_access          authenticate             bad_name               
   badsite_file             bcc_hidden               brace_compatibility
   break_compatability      cache_depth              cache_steal_dirty      
-  cache_trim               cache_width              check_interval         
+  cache_trim               cache_width              cap_articles
+  cap_conjunctions         cap_preposition          check_interval         
   check_offset             clone_copies_cost        cluster_cap
   clusterfunc_cap          comcost                  command_dark           
   command_quota_increment  command_quota_max        compress_program       
@@ -4446,18 +4455,18 @@
   mail_verbosity           mailbox_size             maildelete             
   mailinclude_file         mailprog                 mailsub                
   mailmax_send             master_room              match_own_commands     
-  manlog_file              max_cpu_cycles           max_dest_limit         
-  max_folders              max_lastsite_cnt         max_name_protect
-  max_pcreate_lim          max_pcreate_time         max_percentsubs        
-  max_players              max_sitecons             max_vattr_limit        
-  maximum_size             min_con_attempt          money_lim_off          
-  money_lim_gm             money_lim_arch         
+  manlog_file              map_delim_space          max_cpu_cycles         
+  max_dest_limit           max_folders              max_lastsite_cnt       
+  max_name_protect         max_pcreate_lim          max_pcreate_time       
+  max_percentsubs          max_players              max_sitecons           
+  max_vattr_limit          maximum_size             min_con_attempt        
   
 { 'wizhelp config parameters4' for more }
 
 & CONFIG PARAMETERS4
   Topic: CONFIG PARAMETERS (continued)
   
+  money_lim_off            money_lim_gm             money_lim_arch         
   money_lim_counc          money_name_plural        money_name_singular    
   motd_file                motd_message             mud_name               
   muddb_name               must_unlquota            mux_child_compat
@@ -4772,6 +4781,30 @@
   Specifies the number of buckets in the database cache.  A hashing function
   is used to assign objects or attributes to a particular bucket, where a 
   linear search is performed.
+
+& cap_articles
+  Config parameter: cap_articles <string>.  Default: NULL
+  
+  Specifies the articles that should be ignored with the caplist() function
+  with regarding the (T)itle option.
+  
+  See Also: cap_conjunctions, cap_preposition
+
+& cap_conjunctions
+  Config parameter: cap_conjunctions <string>.  Default: NULL
+  
+  Specifies the conjunctions that should be ignored with the caplist()
+  function with regarding the (T)itle option.
+  
+  See Also: cap_articles, cap_preposition
+
+& cap_preposition
+  Config parameter: cap_preposition <string>.  Default: NULL
+  
+  Specifies the prepositions that should be ignored with the caplist()
+  function with regarding the (T)itle option.
+  
+  See Also: cap_articles, cap_conjunctions
 
 & check_interval
   Config parameter: check_interval <secs>.  Default: 600.
@@ -6076,6 +6109,11 @@
   written to.  The file has to be in the current directory and a '.txt'
   extension is automatically added on whatever filename you have specified.
   Special files like 'help.txt' are protected.
+
+& map_delim_space
+  Config parameter: map_delim_space <value>.  Default: YES
+  Verifies that the output delimeter is a space by default.  If this is
+  set to 0 (or NO/FALSE), the output delimeter is defaulted to a NULL.
 
 & match_own_commands
   Config parameter: match_own_commands <yes/no>.  Default: NO
@@ -8018,6 +8056,35 @@
   CLOAK()       HASPOWER()    HASDEPOWER()  HASTOGGLE()     DOING()
   MAILQUICK()   MAILALIAS()   DYNHELP()     CANSEE()        TEXTFILE()
   LATTRP()      MAILSTATUS()  BYPASS()      LOGTOFILE()     LOGSTATUS()
+  CHECKPASS()   CHKGARBAGE()  LOOKUP_SITE()
+
+& CHKGARBAGE()
+  Function: chkgarbage(<object>, <going|recover>)
+  
+  This function returns '1' if the target object is (g)oing or
+  currently (r)ecoverable.  You may specify the 'g' or 'r' for
+  the option or the entire word.  Your choice.  This is a boolean
+  function and will return '1' for TRUE and '0' for FALSE.
+
+& LOOKUP_SITE()
+  Function: lookup_site(<player> [,<port>] [,<type>])
+  
+  This function reports, if just the player, all current sites the
+  player is currently connected from.  You may narrow it down based
+  on the specific port, and you may specify the type of what 
+  information you want.  This pulls their descriptor information
+  live and can be used against players who are trying to hide
+  their connection by double-logging.
+  
+  The following types exist:
+    0 - Show the DNS name of the player (default)
+    1 - Show the IP of the player
+
+& CHECKPASS()
+  Function: checkpass(<player>,<password>)
+
+  Checks to determine whether a password is valid for a player object.
+  This function is only available to royalty and higher.
 
 & LOGSTATUS()
   Function: logstatus()

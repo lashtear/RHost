@@ -765,7 +765,7 @@ exec(dbref player, dbref cause, dbref caller, int eval, char *dstr,
     time_t starttme, endtme;
     struct itimerval cpuchk;
     double timechk, intervalchk;
-    static unsigned int tstart, tend, tinterval;
+    static unsigned long tstart, tend, tinterval;
 #ifdef BANGS
     int bang_not, bang_string, bang_yes;
     char *tbangc;
@@ -1517,6 +1517,20 @@ exec(dbref player, dbref cause, dbref caller, int eval, char *dstr,
                  safe_str(tbuf, buff, &bufc);
                  free_sbuf(tbuf);
                  break;
+        case 'I':       /* itext */
+        case 'i':
+            dstr++;
+            int inum_val;
+            inum_val = atoi(dstr);
+            if( inum_val < 0 || ( inum_val > mudstate.iter_inum ) )
+            {   
+                safe_str( "#-1 ARGUMENT OUT OF RANGE", buff, &bufc );
+            }
+            else
+            {   
+                safe_str( mudstate.iter_arr[mudstate.iter_inum - inum_val], buff, &bufc );
+            }
+            break;
 	    case 'N':		/* Invoker name */
 	    case 'n':
                 if ( (mudconf.sub_override & SUB_N) && !(mudstate.sub_overridestate & SUB_N) && Good_obj(mudconf.hook_obj) ) {
@@ -1639,7 +1653,7 @@ exec(dbref player, dbref cause, dbref caller, int eval, char *dstr,
                    sub_ap = atr_str(t_bufa);
                    sub_delim = sub_value = 0;
                    if (sub_ap) {
-                      mudstate.sub_includestate = mudstate.sub_includestate = 1;
+                      mudstate.sub_includestate = 1;
                       sub_txt = atr_pget(mudconf.hook_obj, sub_ap->number, &sub_aowner, &sub_aflags);
                       sprintf(t_bufa, "CHR_%c", *dstr);
                       sub_ap = atr_str(t_bufa);
@@ -1709,7 +1723,7 @@ exec(dbref player, dbref cause, dbref caller, int eval, char *dstr,
                       } else {
 		         safe_chr(*dstr, buff, &bufc);
                       }
-                      mudstate.sub_includestate = mudstate.sub_includestate = 0;
+                      mudstate.sub_includestate = 0;
                    } else {
 		      safe_chr(*dstr, buff, &bufc);
                    }
@@ -1888,7 +1902,53 @@ exec(dbref player, dbref cause, dbref caller, int eval, char *dstr,
 
 	    if (ufp) {
 		mudstate.func_nest_lev++;
-                if ( mudstate.ufunc_nest_lev >= mudconf.func_nest_lim ) {
+                if ( ((ufp->minargs != -1) && (nfargs < ufp->minargs)) ||
+                     ((ufp->maxargs != -1) && (nfargs > ufp->maxargs)) ) {
+                 bufc = buff;
+                 tstr = alloc_sbuf("exec.funcargs");
+                 safe_str((char *) "#-1 FUNCTION (",
+                          buff, &bufc);
+                 safe_str((char *) ufp->name, buff, &bufc);
+                   if ( abs(ufp->minargs) != ufp->maxargs ) {
+                      if ( ufp->maxargs == -1 ) {
+                       safe_str((char *) ") EXPECTS ",
+                                buff, &bufc);
+                      } else {
+                       safe_str((char *) ") EXPECTS BETWEEN ",
+                                buff, &bufc);
+                      }
+                      if ( ufp->minargs == -1 ) {
+                         sprintf(tstr, "%d", (int) 1);
+                      } else {
+                         sprintf(tstr, "%d", ufp->minargs);
+                      }
+                    safe_str(tstr, buff, &bufc);
+                      if ( ufp->maxargs == -1 ) {
+                         safe_str((char *) " OR MORE",
+                                buff, &bufc);
+                      } else {
+                       safe_str((char *) " AND ",
+                                buff, &bufc);
+                         sprintf(tstr, "%d", ufp->maxargs);
+                       safe_str(tstr, buff, &bufc);
+                      }
+                   } else {
+                    safe_str((char *) ") EXPECTS ",
+                             buff, &bufc);
+                      sprintf(tstr, "%d", ufp->maxargs);
+                    safe_str(tstr, buff, &bufc);
+                   }
+                   if ( ufp->maxargs == 1 ) {
+                    safe_str((char *) " ARGUMENT [RECEIVED ",
+                             buff, &bufc);
+                   } else {
+                    safe_str((char *) " ARGUMENTS [RECEIVED ",
+                             buff, &bufc);
+                   }
+                   sprintf(tstr, "%d]", nfargs);
+                   safe_str(tstr, buff, &bufc);
+                 free_sbuf(tstr);
+                } else if ( mudstate.ufunc_nest_lev >= mudconf.func_nest_lim ) {
 		    safe_str("#-1 FUNCTION RECURSION LIMIT EXCEEDED",
                              buff, &bufc);
                 } else if ( Fubar(player) ) {

@@ -353,6 +353,7 @@ const char *mux_crypt(const char *szPassword, const char *szSetting, int *piType
     // 12345678901234567890123456789012345678901234567
     // $SHA1$ssssssssssss$hhhhhhhhhhhhhhhhhhhhhhhhhhhh
     //
+    memset(buf, '\0', sizeof(buf));
     strncpy(buf, szSHA1Prefix, SHA1_PREFIX_LENGTH);
     memcpy(buf + SHA1_PREFIX_LENGTH, pSaltField, nSaltField);
     buf[SHA1_PREFIX_LENGTH + nSaltField] = '$';

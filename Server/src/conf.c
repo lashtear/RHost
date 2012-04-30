@@ -256,7 +256,7 @@ NDECL(cf_init)
     mudconf.round_kludge = 0; /* Kludge workaround to fix rounding 2.5 to 2. [Loki] */
     mudconf.power_objects = 0;		/* non-players can have @powers? */
     mudconf.shs_reverse = 0;
-    mudconf.break_compatibility = 1;	/* @break/@assert compatibility */
+    mudconf.break_compatibility = 0;	/* @break/@assert compatibility */
     mudconf.log_network_errors = 1;	/* Log Network Errors */
     mudconf.old_elist = 0;		/* Use old elist processing */
     mudconf.mux_child_compat = 0;	/* MUX children() compatability */
@@ -264,7 +264,12 @@ NDECL(cf_init)
     mudconf.switch_search = 0;		/* Switch search and searchng */
     mudconf.signal_crontab = 0;		/* USR1 signals crontab file reading */
     mudconf.max_name_protect = 0;
+    mudconf.map_delim_space = 1;      /* output delim is input delim by default */
     memset(mudconf.sub_include, '\0', sizeof(mudconf.sub_include));
+    memset(mudconf.cap_conjunctions, '\0', sizeof(mudconf.cap_conjunctions));
+    memset(mudconf.cap_articles, '\0', sizeof(mudconf.cap_articles));
+    memset(mudconf.cap_preposition, '\0', sizeof(mudconf.cap_preposition));
+    mudstate.nocodeoverride = 0;	/* Override nocode */
     mudstate.global_regs_wipe = 0;	/* localize variables - wipe if enabled */
     mudstate.includecnt = 0;
     mudstate.includenest = 0;
@@ -2405,6 +2410,15 @@ CONF conftable[] =
      cf_int, CA_DISABLED, &mudconf.cache_width, 0, 0, CA_WIZARD,
      (char *) "What is the current cache width?\r\n"
               "                             Default: 541   Value: %d"},
+    {(char *) "cap_conjunctions",
+     cf_string, CA_GOD | CA_IMMORTAL, (int *) mudconf.cap_conjunctions, LBUF_SIZE - 2, 0, CA_WIZARD,
+     (char *) "Exceptions for caplist -- conjunctions."},
+    {(char *) "cap_articles",
+     cf_string, CA_GOD | CA_IMMORTAL, (int *) mudconf.cap_articles, LBUF_SIZE - 2, 0, CA_WIZARD,
+     (char *) "Exceptions for caplist -- articles."},
+    {(char *) "cap_preposition",
+     cf_string, CA_GOD | CA_IMMORTAL, (int *) mudconf.cap_preposition, LBUF_SIZE - 2, 0, CA_WIZARD,
+     (char *) "Exceptions for caplist -- preposition."},
     {(char *) "check_interval",
      cf_int, CA_GOD | CA_IMMORTAL, &mudconf.check_interval, 0, 0, CA_WIZARD,
      (char *) "What is the DBCK interval?\r\n"\
@@ -2481,6 +2495,9 @@ CONF conftable[] =
     {(char *) "lcon_checks_dark",
      cf_bool, CA_GOD | CA_IMMORTAL, &mudconf.lcon_checks_dark, 0, 0, CA_PUBLIC,
      (char *) "Lcon/Xcon checks dark/unfindable?"},
+    {(char *) "map_delim_space",
+     cf_bool, CA_GOD | CA_IMMORTAL, &mudconf.map_delim_space, 0, 0, CA_PUBLIC,
+     (char *) "MAP() uses space/seperator?"},
     {(char *) "max_cpu_cycles",
      cf_int, CA_GOD | CA_IMMORTAL, &mudconf.max_cpu_cycles, 0, 0, CA_WIZARD,
      (char *) "Max cpu slams allowed before smackdown.\r\n"\

@@ -1165,7 +1165,7 @@ NDECL(make_freelist)
     mudstate.recoverlist = NOTHING;
     DO_WHOLE_DB(i) {
 	if (Going(i) && Recover(i)) {
-	    s_Flags(i, Flags(i) &= ~GOING);
+	    s_Flags(i, Flags(i) & ~GOING);
 	}
 	if (Recover(i) && !Byeroom(i)) {
 	    s_Link(i, mudstate.recoverlist);

@@ -24,6 +24,7 @@
  */
 void local_startup(void) {
    load_regexp_functions();
+   local_mysql_init();
 }
 
 /* Called immediatly after the main game loop exits. At this point

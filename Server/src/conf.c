@@ -256,7 +256,7 @@ NDECL(cf_init)
     mudconf.round_kludge = 0; /* Kludge workaround to fix rounding 2.5 to 2. [Loki] */
     mudconf.power_objects = 0;		/* non-players can have @powers? */
     mudconf.shs_reverse = 0;
-    mudconf.break_compatibility = 0;	/* @break/@assert compatibility */
+    mudconf.break_compatibility = 1;	/* @break/@assert compatibility */
     mudconf.log_network_errors = 1;	/* Log Network Errors */
     mudconf.old_elist = 0;		/* Use old elist processing */
     mudconf.mux_child_compat = 0;	/* MUX children() compatability */

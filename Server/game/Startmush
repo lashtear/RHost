@@ -7,17 +7,45 @@ PATH=/usr/local/bin:/usr/ucb:/bin:/usr/bin:.; export PATH
 # LD_LIBRARY_PATH=$LD_LIBRARY_PATH:../src/gdbm-1.8.3:../src/gdbm-1.8.3/.libs
 # export LD_LIBRARY_PATH
 #
+awk '{ if ( match($0,"\r")) exit 1 }' < mush.config > /dev/null 2>&1
+if [ $? -gt 0 ]
+then
+   echo "mush.config has apparent linefeeds inbedded.  This can happen"
+   echo "if you are transfering from a windows machine to a unix machine."
+   echo "We will strip line feeds now."
+   mv -f mush.config mush.config.orig
+   cat mush.config.orig|tr -d '\015' > mush.config
+   chmod 750 mush.config
+   echo "Stripped."
+fi
 . mush.config
+
+awk '{ if ( match($0,"\r")) exit 1 }' < ${GAMENAME}.conf > /dev/null 2>&1
+if [ $? -gt 0 ]
+then
+   echo "${GAMENAME}.conf has apparent linefeeds inbedded.  This can happen"
+   echo "if you are transfering from a windows machine to a unix machine."
+   echo "We will strip line feeds now."
+   mv -f ${GAMENAME}.conf ${GAMENAME}.conf.orig
+   cat ${GAMENAME}.conf.orig|tr -d '\015' > ${GAMENAME}.conf
+   echo "Stripped."
+fi
 #
 #	Make sure there isn't aready a MUSH running.
 #
-#nmush=`ps ux | egrep netmush | wc -l`
-#if [ $nmush -gt 1 ]; then
-#	exit 0
-#fi
-#
-#	Make sure the indexes are up-to-date.
-#
+lc_pid_chk=0
+if [ -f ${GAMENAME}.pid ]
+then
+   lc_pid=`cat netrhost.pid`
+   lc_pid_chk=`ps -p ${lc_pid}|grep -c rhost`
+fi
+
+if [ ${lc_pid_chk} -gt 0 ]
+then
+   echo "Rhost is already running on pid ${lc_pid}"
+   ps -lp ${lc_pid}
+   exit 1
+fi
 
 if [ ! -r ./netrhost ]; then
    echo "Hmm, I can't seem to find netrhost in this directory."
@@ -62,14 +90,16 @@ if [ -r $LOGNAME.old ]; then
 	gzip $LOGARCHIVE
 	mv -f $LOGARCHIVE.gz oldlogs
 fi
-mv -f $LOGNAME $LOGNAME.old
+if [ -r $LOGNAME ]; then
+   mv -f $LOGNAME $LOGNAME.old
+fi
 #
 #	If we have a good checkpoint database, make it the input database.
 #	If not, use the backup of the input database.
 #
 if [ -r $NEW_DB ]; then
 	mv $NEW_DB $INPUT_DB
-else
+elif [ -r $SAVE_DB ]; then
 	cp $SAVE_DB $INPUT_DB
 fi
 #
@@ -95,7 +125,27 @@ else
    read ANS
    if [ "$ANS" = "y" -o "$ANS" = "Y" ]
    then
-      (nohup ./netrhost.debugmon ${DEBUG_ID} ./netrhost -s $GAMENAME.conf >$LOGNAME 2>&1 &)
+      echo "Do you have a flatfile to load into this mush? (Y/N): "|tr -d '\012'
+      read ANS
+      if [ "$ANS" = "y" -o "$ANS" = "Y" ]
+      then
+         echo "Enter flatfile name (including full path): "|tr -d '\012'
+         read ANS
+         if [ -f "$ANS" ]
+         then
+            ./db_load data/netrhost.gdbm ${ANS} data/netrhost.db
+         fi
+         if [ -f "$INPUT_DB" ]
+         then
+            (nohup ./netrhost.debugmon ${DEBUG_ID} ./netrhost $GAMENAME.conf >$LOGNAME 2>&1 &)
+         else
+            echo "The database wasn't loaded properly.  Going to initialize a new db.  RETURN to continue, ^C to abort."
+            read ANS
+            (nohup ./netrhost.debugmon ${DEBUG_ID} ./netrhost -s $GAMENAME.conf >$LOGNAME 2>&1 &)
+         fi
+      else
+         (nohup ./netrhost.debugmon ${DEBUG_ID} ./netrhost -s $GAMENAME.conf >$LOGNAME 2>&1 &)
+      fi
       echo "Have fun with your new mush.  #1's initial password will be 'Nyctasia'"
       echo "Don't forget to @shutdown as soon as you connect to save the new database."
    else

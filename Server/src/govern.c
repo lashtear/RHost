@@ -95,7 +95,7 @@ LevNode* levname2levnode(char *);
 LevNode* levcode2levnode(levcode);
 void levdb_write( void );
 void levdb_read( void );
-void getline(char *, int, FILE*);
+void mush_getline(char *, int, FILE*);
 
 int level_diff(levcode player1, levcode player2)
 /* returns >0 if player1 higher than player2
@@ -283,7 +283,7 @@ void levdb_write( void )
   fprintf(outfile, "*DONE*\n");
 }
 
-void getline(char *linebuff, int size, FILE* infile)
+void mush_getline(char *linebuff, int size, FILE* infile)
 {
   fgets(linebuff, size, infile);
   linebuff[strlen(linebuff) - 1] = '\0';
@@ -318,24 +318,24 @@ void levdb_read( void )
     abort();
   }
 
-  getline(linebuff, MBUF_SIZE, infile);
+  mush_getline(linebuff, MBUF_SIZE, infile);
 
   while( !feof(infile) &&
          strcmp(linebuff, "*DONE*") ) {
     if( !strcmp(linebuff, "STRUCT:") ) {
-      getline(inbuff, MBUF_SIZE, infile);
+      mush_getline(inbuff, MBUF_SIZE, infile);
       readversion = atoi(inbuff);
       gotstruct = 1;
     }
     else if( !strcmp(linebuff, "NEXTID:") ) {
-      getline(inbuff, MBUF_SIZE, infile);
+      mush_getline(inbuff, MBUF_SIZE, infile);
       nextid = atoi(inbuff);
       gotnextid = 1;
     }
     else if( !strcmp(linebuff, "FREEID:") ) {
-      for( getline(inbuff, MBUF_SIZE, infile);
+      for( mush_getline(inbuff, MBUF_SIZE, infile);
            !feof(infile) && atoi(inbuff);
-           getline(inbuff, MBUF_SIZE, infile) ) {
+           mush_getline(inbuff, MBUF_SIZE, infile) ) {
         ftemp = (LevFreeNode*)malloc(sizeof(LevFreeNode));
         if(!ftemp) {
           STARTLOG(LOG_PROBLEMS, "LEVEL", "MALLOC")
@@ -363,11 +363,11 @@ void levdb_read( void )
         ENDLOG
         abort();
       }
-      getline(inbuff, MBUF_SIZE, infile);
+      mush_getline(inbuff, MBUF_SIZE, infile);
       lev = atoi(inbuff);
-      for( getline(inbuff, MBUF_SIZE, infile);
+      for( mush_getline(inbuff, MBUF_SIZE, infile);
            !feof(infile) && strcmp(inbuff, "*LEVELDONE*");
-           getline(inbuff, MBUF_SIZE, infile) ) {
+           mush_getline(inbuff, MBUF_SIZE, infile) ) {
         
         temp = (LevNode*)malloc(sizeof(LevNode));
   
@@ -395,14 +395,14 @@ void levdb_read( void )
           temp->id = atoi(inbuff);
         }
         if( line++ < readversion ) {
-          getline(inbuff, MBUF_SIZE, infile);
+          mush_getline(inbuff, MBUF_SIZE, infile);
           strncpy(temp->name, inbuff, LEVNAMELEN);
           temp->name[LEVNAMELEN-1] = '\0';
         }
         if( line++ < readversion ) {  /* get children and connect them */
-          for(getline(inbuff, MBUF_SIZE, infile);
+          for(mush_getline(inbuff, MBUF_SIZE, infile);
               !feof(infile) && atoi(inbuff);
-              getline(inbuff, MBUF_SIZE, infile) ) {
+              mush_getline(inbuff, MBUF_SIZE, infile) ) {
             childid = atoi(inbuff);
             if( lev < MAX_LEV ) {
               for(ctemp = lev_lists[lev+1]; 
@@ -444,7 +444,7 @@ void levdb_read( void )
               }
             }
           }
-          getline(inbuff, MBUF_SIZE, infile);
+          mush_getline(inbuff, MBUF_SIZE, infile);
           if(strcmp(inbuff, "*NODEDONE*") ) {
             STARTLOG(LOG_PROBLEMS, "LEVEL", "NODE")
               log_text("Node ");
@@ -478,7 +478,7 @@ void levdb_read( void )
       ENDLOG
       abort();
     }
-    getline(linebuff, MBUF_SIZE, infile);
+    mush_getline(linebuff, MBUF_SIZE, infile);
   } /* main tag */
 
   if( strcmp(linebuff, "*DONE*") ) {

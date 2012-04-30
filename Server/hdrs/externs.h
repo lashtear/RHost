@@ -254,6 +254,12 @@ extern void	FDECL(badname_add, (char *));
 extern void	FDECL(badname_remove, (char *));
 extern int	FDECL(badname_check, (char *, dbref));
 extern void	FDECL(badname_list, (dbref, const char *));
+extern int	FDECL(protectname_add, (char *, dbref));
+extern dbref	FDECL(protectname_remove, (char *, dbref));
+extern int	FDECL(protectname_check, (char *, dbref, int));
+extern void	FDECL(protectname_list, (dbref, int, dbref));
+extern dbref	FDECL(protectname_alias, (char *, dbref));
+extern dbref	FDECL(protectname_unalias, (char *, dbref));
 extern int	FDECL(reg_internal, (char *, char *, char *, int));
 
 /* From predicates.c */
@@ -563,11 +569,13 @@ extern int      FDECL(mush_crypt_validate, (dbref, const char *, const char *, i
 #define	FIXDB_DEL_PN	512	/* Remove player name from player name index */
 #define	FIXDB_ADD_PN	1024	/* Add player name to player name index */
 #define	FIXDB_NAME	2048	/* Set NAME attribute */
+#define FIXDB_TYPE	4096	/* Fix type of object - DANGEROUS */
 #define FLAGSW_REMOVE	1
 #define FLAGDEF_SET     1       /* Set flag 'set' permissions */
 #define FLAGDEF_UNSET   2	/* Set flag 'unset' permissions */
 #define FLAGDEF_SEE     4	/* Set flag 'see' permissions */
 #define FLAGDEF_LIST	8	/* List current flags and permissions (default) */
+#define FLAGDEF_CHAR  	16	/* Redefine the character for the flag */
 #define	FRC_PREFIX	0	/* #num command */
 #define	FRC_COMMAND	1	/* what=command */
 #define	GET_QUIET	1	/* Don't do osucc/asucc if control */
@@ -715,6 +723,13 @@ extern int      FDECL(mush_crypt_validate, (dbref, const char *, const char *, i
 #define PURGE_TIME	2
 #define PURGE_TYPE	4
 #define PURGE_OWNER	8
+#define PROTECT_LIST	1
+#define PROTECT_ADD	2
+#define PROTECT_DEL	4
+#define PROTECT_BYPLAYER	8
+#define PROTECT_SUMMARY		16
+#define PROTECT_ALIAS	32
+#define PROTECT_UNALIAS	64
 #define	QUEUE_KICK	1	/* Process commands from queue */
 #define	QUEUE_WARP	2	/* Advance or set back wait queue clock */
 #define QUEUE_KICK_PID	4
@@ -794,6 +809,13 @@ extern int      FDECL(mush_crypt_validate, (dbref, const char *, const char *, i
 #define SIDE_RXLEVEL    2097152 /* Side-effect rxlevel() */
 #define SIDE_RSET       4194304 /* Side-effect rset() */
 #define SIDE_MOVE       8388608 /* Side-effect move() */       
+#define SIDE_CLUSTER_ADD 16777216 /* Side-effect cluster_add() */
+#define	SNAPSHOT_NOOPT	0	/* No option specified */
+#define SNAPSHOT_LIST	1	/* Show files in snapshot directory */
+#define SNAPSHOT_UNLOAD	2	/* Unload a snapshot from the db */
+#define SNAPSHOT_DEL	4	/* Delete a snapshot */
+#define SNAPSHOT_LOAD	8	/* Load a snapshot into the db */
+#define SNAPSHOT_VERIFY 16	/* Verify and sanity check snapshot file */
 #define SITE_REG	1
 #define SITE_FOR	2
 #define SITE_SUS	4
@@ -842,6 +864,8 @@ extern int      FDECL(mush_crypt_validate, (dbref, const char *, const char *, i
 #define TOGGLE_CLEAR	2	/* Clear the toggle list */
 #define	TRIG_QUIET	1	/* Don't display 'Triggered.' message. */
 #define TRIG_PROGRAM    2       /* Trigger is actually a @program */
+#define TRIG_COMMAND    4       /* Can Trigger $commands */
+#define INCLUDE_COMMAND	1	/* Can @insert trigger $commands */
 #define	TWARP_QUEUE	1	/* Warp the wait and sem queues */
 #define	TWARP_DUMP	2	/* Warp the dump interval */
 #define	TWARP_CLEAN	4	/* Warp the cleaning interval */
@@ -853,6 +877,9 @@ extern int      FDECL(mush_crypt_validate, (dbref, const char *, const char *, i
 #define MLOG_FILE	8	/* Specify file name for manual log (128 chars max) */
 #define MLOG_ROOM	16	/* Log Room's output */
 #define LOGROTATE_STATUS 1	/* Status of current log */
+#define BLACKLIST_LIST	1	/* List blacklist */
+#define BLACKLIST_CLEAR	2	/* Clear blacklist */
+#define BLACKLIST_LOAD	4	/* Load blacklist.txt file */
 #define WAIT_PID        1       /* Re-wait a PID process */
 #define WAIT_UNTIL	2	/* Wait until specified time */
 #define WAIT_RECPID	4	/* Record PID of wait to specified setq register */
@@ -876,6 +903,7 @@ extern int      FDECL(mush_crypt_validate, (dbref, const char *, const char *, i
 #define CLUSTER_GREP	4096	/* Grep for a cluster */
 #define CLUSTER_REACTION 8192	/* Edit action for a cluster */
 #define CLUSTER_TRIGGER 16384	/* Trigger attribute on cluster */
+#define CLUSTER_FUNC    32768	/* Trigger function action instead of command action */
 
 /* Hush codes for movement messages */
 

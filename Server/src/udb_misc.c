@@ -40,6 +40,8 @@ va_dcl
 
 {
 va_list	ap;
+FILE *f_foo;
+
 
 #ifdef STDC_HEADERS
 	va_start(ap,p);
@@ -49,6 +51,11 @@ char	*p;
 	va_start(ap);
 	p = va_arg(ap,char *);
 #endif
+       if ( mudstate.f_logfile_name )
+          f_foo = mudstate.f_logfile_name;
+       else
+          f_foo = stderr;
+
 	while(1) {
 		if(p == (char *)0)
 			break;
@@ -57,11 +64,11 @@ char	*p;
 		  p = strerror(errno);
  		 /* p = (char *) sys_errlist[errno]; DEPRECATED */
 
-		(void)fprintf(stderr,"%s",p);
+		(void)fprintf(f_foo,"%s",p);
 		p = va_arg(ap,char *);
 	}
 	va_end(ap);
-	(void)fflush(stderr);
+	(void)fflush(f_foo);
 }
 
 /*

@@ -703,5 +703,10 @@ errmsg(dbref player)
     }
     free_lbuf(line);
     tf_fclose(fp);
+    if ( *errbuf == '!' ) {
+       buffp = exec(player, player, player, EV_STRIP | EV_FCHECK | EV_EVAL, errbuf+1, (char **) NULL, 0);
+       strcpy(errbuf, buffp);
+       free_lbuf(buffp);
+    }
     return errbuf;
 }

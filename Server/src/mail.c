@@ -55,6 +55,10 @@ void bcopy(const void *, void *, int);
                          ((Immortal(x) && Dark(x) && Unfindable(x) && Immortal(y)) || \
                          (Wizard(x) && Dark(x) && Unfindable(x) && Wizard(y) && !SCloak(x)) || \
                          (!Cloak(x))))
+#define Chk_Dark(x,y)	((Good_chk(x) && Good_chk(y)) && \
+                         ((Dark(x) && !mudconf.who_unfindable && !mudconf.player_dark) || \
+                          (Unfindable(x) && mudconf.who_unfindable) || NoWho(x)) && \
+                         !Admin(y))
 
 static char mailname[260];
 static char dumpname[260];
@@ -2465,7 +2469,7 @@ void mail_status(dbref player, char *buf, dbref wiz, int key, int type, char *ou
 		      toupper(*(mbuf2+hstoff)), curr_mpos, w1, x, 
                       (i_autodelete ? 'm' : (chk_anon2 ? 'A' : ' ')), 
                       ((Good_obj(pcheck) && !chk_anon &&
-                      (Connected(pcheck) && Chk_Cloak(pcheck,player2))) ? '*':' '), 
+                      (Connected(pcheck) && Chk_Cloak(pcheck,player2) && !Chk_Dark(pcheck,player2))) ? '*':' '), 
                       (chk_anon ? anon_player : sbuf3), sbuf1, mlen, sbuf2));
                 } else {
                       safe_str(safe_tprintf(tpr_buff, &tprp_buff, 
@@ -2473,7 +2477,7 @@ void mail_status(dbref player, char *buf, dbref wiz, int key, int type, char *ou
                       toupper(*(mbuf2+hstoff)), curr_mpos, w1, x, 
                       (i_autodelete ? 'm' : (chk_anon2 ? 'A' : ' ')), 
                       ((Good_obj(pcheck) && !chk_anon &&
-                      (Connected(pcheck) && Chk_Cloak(pcheck,player2))) ? '*':' '),
+                      (Connected(pcheck) && Chk_Cloak(pcheck,player2) && !Chk_Dark(pcheck,player2))) ? '*':' '),
                       (chk_anon ? anon_player : sbuf3), sbuf1, mlen, sbuf2), out_buff, &out_buffptr);
                 }
 	     }
@@ -2484,7 +2488,7 @@ void mail_status(dbref player, char *buf, dbref wiz, int key, int type, char *ou
 		      toupper(*(mbuf2+hstoff)), curr_mpos, w1, x, 
                       (i_autodelete ? 'm' : (chk_anon2 ? 'A' : ' ')), 
                       ((Good_obj(pcheck) && !chk_anon &&
-                      (Connected(pcheck) && Chk_Cloak(pcheck,player2))) ? '*':' '),
+                      (Connected(pcheck) && Chk_Cloak(pcheck,player2) && !Chk_Dark(pcheck,player2))) ? '*':' '),
                       (chk_anon ? anon_player : sbuf3), sbuf1, mlen, sbuf2));
                 } else {
                       safe_str(safe_tprintf(tpr_buff, &tprp_buff, 
@@ -2492,7 +2496,7 @@ void mail_status(dbref player, char *buf, dbref wiz, int key, int type, char *ou
                       toupper(*(mbuf2+hstoff)), curr_mpos, w1, x, 
                       (i_autodelete ? 'm' : (chk_anon2 ? 'A' : ' ')), 
                       ((Good_obj(pcheck) && !chk_anon &&
-                      (Connected(pcheck) && Chk_Cloak(pcheck,player2))) ? '*':' '),
+                      (Connected(pcheck) && Chk_Cloak(pcheck,player2) && !Chk_Dark(pcheck,player2))) ? '*':' '),
                       (chk_anon ? anon_player : sbuf3), sbuf1, mlen, sbuf2), out_buff, &out_buffptr);
                 }
 	     }
@@ -2503,7 +2507,7 @@ void mail_status(dbref player, char *buf, dbref wiz, int key, int type, char *ou
 		      toupper(*(mbuf2+hstoff)), curr_mpos, w1, x, 
                       (i_autodelete ? 'm' : (chk_anon2 ? 'A' : ' ')), 
                       ((Good_obj(pcheck) && !chk_anon &&
-                      (Connected(pcheck) && Chk_Cloak(pcheck,player2))) ? '*':' '),
+                      (Connected(pcheck) && Chk_Cloak(pcheck,player2) && !Chk_Dark(pcheck,player2))) ? '*':' '),
                       (chk_anon ? anon_player : sbuf3), sbuf1, mlen, sbuf2));
                 } else {
                       safe_str(safe_tprintf(tpr_buff, &tprp_buff, 
@@ -2511,7 +2515,7 @@ void mail_status(dbref player, char *buf, dbref wiz, int key, int type, char *ou
                       toupper(*(mbuf2+hstoff)), curr_mpos, w1, x, 
                       (i_autodelete ? 'm' : (chk_anon2 ? 'A' : ' ')), 
                       ((Good_obj(pcheck) && !chk_anon &&
-                      (Connected(pcheck) && Chk_Cloak(pcheck,player2))) ? '*':' '),
+                      (Connected(pcheck) && Chk_Cloak(pcheck,player2) && !Chk_Dark(pcheck,player2))) ? '*':' '),
                       (chk_anon ? anon_player : sbuf3), sbuf1, mlen, sbuf2), out_buff, &out_buffptr);
                 }
 	     }
@@ -2522,7 +2526,7 @@ void mail_status(dbref player, char *buf, dbref wiz, int key, int type, char *ou
 		      toupper(*(mbuf2+hstoff)), curr_mpos, w1, x, 
                       (i_autodelete ? 'm' : (chk_anon2 ? 'A' : ' ')), 
                       ((Good_obj(pcheck) && !chk_anon && 
-                      (Connected(pcheck) && Chk_Cloak(pcheck,player2))) ? '*':' '),
+                      (Connected(pcheck) && Chk_Cloak(pcheck,player2) && !Chk_Dark(pcheck,player2))) ? '*':' '),
                       (chk_anon ? anon_player : sbuf3), sbuf1, mlen, sbuf2));
                 } else {
                       safe_str(safe_tprintf(tpr_buff, &tprp_buff, 
@@ -2530,7 +2534,7 @@ void mail_status(dbref player, char *buf, dbref wiz, int key, int type, char *ou
                       toupper(*(mbuf2+hstoff)), curr_mpos, w1, x, 
                       (i_autodelete ? 'm' : (chk_anon2 ? 'A' : ' ')), 
                       ((Good_obj(pcheck) && !chk_anon &&
-                      (Connected(pcheck) && Chk_Cloak(pcheck,player2))) ? '*':' '),
+                      (Connected(pcheck) && Chk_Cloak(pcheck,player2) && !Chk_Dark(pcheck,player2))) ? '*':' '),
                       (chk_anon ? anon_player : sbuf3), sbuf1, mlen, sbuf2), out_buff, &out_buffptr);
                 }
 	     }
@@ -2825,7 +2829,7 @@ void mail_read(dbref player, char *buf, dbref wiz, int key)
         notify_quiet(player2,
                      safe_tprintf(tpr_buff, &tprp_buff, 
                                   "Message #: %d  %s\nStatus: %-11s From: %-16s%s%s\nTo: %s\nDate/Time: %-31s Size: %d %s", mesg, 
-                                  ((Good_obj(send) && !chk_anon && (Connected(send) && Chk_Cloak(send,player2))) ? "      (Connected)" : ""), 
+                                  ((Good_obj(send) && !chk_anon && (Connected(send) && Chk_Cloak(send,player2) && !Chk_Dark(send,player2))) ? "      (Connected)" : ""), 
                                   s_status, (chk_anon ? anon_player : sbuf7), (chk_anon2 ? " [Anonymous] " : " "),
                                   sbuf2, lbuf7, sbuf4, size, sbuf3));
       }
@@ -2833,7 +2837,7 @@ void mail_read(dbref player, char *buf, dbref wiz, int key)
         notify_quiet(player2,
                      safe_tprintf(tpr_buff, &tprp_buff, 
                                   "Message #: %d  %s\nStatus: %-11s From: %-16s%s%s\nDate/Time: %-31s Size: %d %s", mesg, 
-                                  ((Good_obj(send) && !chk_anon && (Connected(send) && Chk_Cloak(send,player2))) ? "      (Connected)" : ""),
+                                  ((Good_obj(send) && !chk_anon && (Connected(send) && Chk_Cloak(send,player2) && !Chk_Dark(send,player2))) ? "      (Connected)" : ""),
                                   s_status, (chk_anon ? anon_player : sbuf7), (chk_anon2 ? " [Anonymous] " : " "), 
                                   sbuf2, sbuf4, size, sbuf3));
       if (pt1) {

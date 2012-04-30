@@ -24,6 +24,9 @@
 int bittype(dbref player) {
   int level = 0;
   DPUSH; /* */
+  if ( !Good_chk(player) )
+     return 0;
+
   if( God(player) ) {
     level = 7;
   } else if( Immortal(player) ) {

@@ -26,10 +26,12 @@
 &FUN_GET_RAW soft=[edit(get(%0),%c,\%c)]
 &FUN_V_RAW soft=[edit(v(%0),%c,\%c)]
 &FUNP_CNAME soft=[setq(0,switch(match(me here,%0),1,%#,2,loc(%#),%0))][switch([strmatch(name(%q0),stripansi(get(%q0/ansiname)))][hastoggle(%q0,extansi)][hasattr(%q0,ansiname)],111,[get(%q0/ansiname)][ansi(n,)],001,[ansi(get(%q0/ansiname),name(%q0))],name(%q0))]
-&FUN_STRTRUNC soft=[trim(ljc(v(0),v(1)))]
-&FUN_BORDER soft=[wrap(v(0),v(1),l,v(2),v(3))]
+&FUN_STRTRUNC soft=[trim(ljc(%0,%1))]
+&FUN_BORDER soft=[wrap(%0,%1,l,%2,%3)]
 &FUN_NONZERO soft=[ifelse(t(%0),%1,%2)]
 &FUN_FN soft=[bypass(1)][strfunc(%0,%1 %2 %3 %4 %5 %6 %7 %8 %9)][bypass(0)]
+&FUN_LETQ soft=[ifelse(mod(%+,2),[step(#lambda/[lit([setq(s(%0),s(%1))])],[iter(lnum(0,sub(%+,2)),[v(##)],,~)],2,~)][eval([v(sub(%+,1))])],#-1 FUNCTION %(letq%) EXPECTS AN ODD NUMBER OF ARGUMENTS)]
+&FUNFLAG_LETQ soft=no_eval
 @fo softfunc=&DB me=num(softfunc)
-@startup softfunc=@dolist lattr([v(db)]/fun_*)=@function [after(##,_)]=[v(db)]/##;@dolist lattr([v(db)]/funp_*)=@function/priv/pres [after(##,_)]=[v(db)]/##;@dolist lattr([v(DB)]/funpr_*)=@function/pres [after(##,_)]=[v(DB)]/##;@dolist lattr([v(db)]/funpv_*)=@function/priv [after(##,_)]=[v(DB)]/##
+@startup softfunc=@dolist lattr([v(db)]/fun_*)=@function [after(##,_)]=[v(db)]/##;@dolist lattr([v(db)]/funp_*)=@function/priv/pres [after(##,_)]=[v(db)]/##;@dolist lattr([v(DB)]/funpr_*)=@function/pres [after(##,_)]=[v(DB)]/##;@dolist lattr([v(db)]/funpv_*)=@function/priv [after(##,_)]=[v(DB)]/##;@wait 10={@dolist lattr([v(db)]/funflag_*)=@admin function_access=[after(##,_)] [get([v(db)]/##)]}
 @@ think Issue this command:  @dolist search\(flags=P\)=@swi \[words\(get\(##/race\)\)\]=0,@cpattr/clear ##/RACE=##/race

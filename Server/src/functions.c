@@ -1140,6 +1140,7 @@ int string_count(char* src, int numchars)
 #define JUST_RIGHT  1
 #define JUST_JUST   2
 #define JUST_CENTER 3
+#define JUST_IGNORE 4
 
 struct wrapinfo {
   char *left;
@@ -1215,6 +1216,9 @@ void wrap_out( char* src, int numchars, struct wrapinfo *wp,
 #endif
 
   switch( wp->just ) {
+    case JUST_IGNORE:
+      safe_substr(src, numchars, buff, bufcx);
+      break;
     case JUST_LEFT:
       safe_substr(src, numchars, buff, bufcx);
       safe_pad2(space_sep, wp->width - prntchrs, buff, bufcx);
@@ -1429,6 +1433,43 @@ FUNCTION(fun_while)
         free_lbuf(condbuf);
 }
 
+FUNCTION(fun_writable)
+{
+   int attrib;
+   dbref s_thing, t_thing;
+   ATTR *atr;
+
+   s_thing = match_thing_quiet(player, fargs[0]);
+   if ( !Good_chk(s_thing) || !Controls(player, s_thing) ) {
+      ival(buff, bufcx, 0);
+      return;
+   }
+   if (!parse_attrib(player, fargs[1], &t_thing, &attrib)) {
+      ival(buff, bufcx, 0);
+      return;
+   }
+   if ( !Good_chk(t_thing) ) {
+      ival(buff, bufcx, 0);
+      return;
+   }
+   if ( attrib == NOTHING ) {
+      if ( Controls(s_thing, t_thing) )  {
+         if ( !*fargs[1] || (strchr(fargs[1], '/') == NULL) || 
+              !ok_attr_name(strchr(fargs[1], '/')+1) ||
+              (!Wizard(s_thing) && *(strchr(fargs[1], '/') + 1) == '_') ) {
+            ival(buff, bufcx, 0);
+         } else {
+            ival(buff, bufcx, 1);
+         }
+      } else {
+         ival(buff, bufcx, 0);
+      }
+      return;
+   }
+   atr = atr_num(attrib);
+   ival(buff, bufcx, Set_attr(s_thing, t_thing, atr, 0));
+}
+
 FUNCTION(fun_wrap) /* text, width, just, left text, right text, hanging, type */
 {
   struct wrapinfo winfo;
@@ -1474,6 +1515,9 @@ FUNCTION(fun_wrap) /* text, width, just, left text, right text, hanging, type */
         break;
       case 'C':
         winfo.just = JUST_CENTER;
+        break;
+      case 'I':
+        winfo.just = JUST_IGNORE;
         break;
       default:
         safe_str("#-1 INVALID JUSTIFICATION SPECIFIED", buff, bufcx);
@@ -3044,6 +3088,7 @@ FUNCTION(fun_elist)
        return;
 
     commsep = 0;
+    curr_buf = NULL;
     memset(sop, 0, sizeof(sop));
     if (nfargs > 1 && *fargs[1] ) {
        sep_buf = exec(player, cause, caller,
@@ -3086,14 +3131,15 @@ FUNCTION(fun_elist)
        commsep = 1;
     }
 
-    curr_buf = exec(player, cause, caller, EV_STRIP | EV_FCHECK | EV_EVAL, fargs[0],
-         cargs, ncargs);
     curr = alloc_lbuf("fun_elist");
     cp = curr;
+
+    curr_buf = exec(player, cause, caller, EV_STRIP | EV_FCHECK | EV_EVAL, fargs[0],
+                    cargs, ncargs);
     safe_str(strip_ansi(curr_buf),curr,&cp);
     free_lbuf(curr_buf);
-    cp = curr;
 
+    cp = curr;
     cp = trim_space_sep(cp, sep);
     if (!*cp) {
        free_lbuf(curr);
@@ -3107,12 +3153,17 @@ FUNCTION(fun_elist)
     cntr = 1;
     while (cp) {
        objstring = split_token(&cp, sep);
-       result = exec(player, cause, caller,
-                     EV_STRIP | EV_FCHECK | EV_EVAL, objstring, cargs, ncargs);
        if (!first)
           safe_chr(sepfil, buff, bufcx);
+       if ( mudconf.old_elist == 1 ) {
+          result = exec(player, cause, caller,
+                        EV_STRIP | EV_FCHECK | EV_EVAL, objstring, cargs, ncargs);
+          safe_str(result, buff, bufcx);
+          free_lbuf(result);
+       } else {
+          safe_str(objstring, buff, bufcx);
+       }
        first = 0;
-       safe_str(result, buff, bufcx);
        if ( cntr <= t_last ) {
           if ( commsep )
              safe_str(sep_buf2, buff, bufcx);
@@ -3128,7 +3179,6 @@ FUNCTION(fun_elist)
           safe_chr(sepfil, buff, bufcx);
           safe_str(sop, buff, bufcx);
        }
-       free_lbuf(result);
        cntr++;
     }
     free_lbuf(curr);
@@ -4444,7 +4494,7 @@ FUNCTION(fun_port)
 FUNCTION(fun_children)
 {
     dbref i, it;
-    int gotone, i_max, i_ceil, i_type, i_cntr;
+    int gotone, i_max, i_ceil, i_type, i_cntr, i_start, i_startcnt;
     char c_type, *tbuf;
 
     if (!fn_range_check("CHILDREN", nfargs, 1, 2, buff, bufcx)) {
@@ -4462,6 +4512,11 @@ FUNCTION(fun_children)
     if ( i_type < 0 )
        i_type = 0;
 
+    i_start = i_startcnt = 0;
+    if ( (c_type == '~') && (strchr(fargs[1], '-') != NULL) ) {
+       i_start = atoi(fargs[1]+1);
+       i_startcnt = i_start + atoi(strchr(fargs[1], '-')+1) - 1;
+    }
     i_max = (i_type - 1) * 400;
     i_ceil = i_max + 400;
     gotone = 0;
@@ -4474,6 +4529,8 @@ FUNCTION(fun_children)
                 continue;
              if ( i_type && (i_cntr >= i_ceil) )
                 break;
+             if ( (i_start > 0) && ((i_cntr < i_start) || (i_cntr > i_startcnt)) )
+                continue;
              if (gotone) {
                 safe_chr(' ', buff, bufcx);
              } else {
@@ -4490,8 +4547,10 @@ FUNCTION(fun_children)
           free_sbuf(tbuf);
        }
     }
-    if (!gotone)
-      safe_str("#-1", buff, bufcx);
+    if (!gotone && (mudconf.mux_child_compat == 0) ) {
+         safe_str("#-1", buff, bufcx);
+    }
+    
 }
 
 /*---------------------------------------------------------------------------
@@ -5121,6 +5180,7 @@ struct timefmt_format {
   int leftjust;      /* left justify the field */
   int nocutval;	     /* Don't cut the value off */
   int breakonreturn;	/* Break on return identification */
+  char format_padch;	/* Character to pad */
 };
 
 void safe_chr_fm( char ch, char* buff, char** bufcx,
@@ -5246,6 +5306,8 @@ void showfield(char* fmtbuff, char* buff, char** bufcx,
   }    
   else {
     padwidth = fm->fieldwidth - strlen(fmtbuff);
+    if ( fm->format_padch )
+       padch=fm->format_padch;
     if( numeric &&
         fm->zeropad ) {
       padch = '0';
@@ -5259,7 +5321,8 @@ void showfield(char* fmtbuff, char* buff, char** bufcx,
       safe_chr_fm( *fmtbuff, buff, bufcx, fm );
     }
     if( fm->leftjust ) {
-      padch = ' '; /* don't right-pad with zeros ever */
+      if ( !fm->format_padch )
+         padch = ' '; /* don't right-pad with zeros ever */
       for( idx = 0; idx < padwidth; idx++ ) {
         safe_chr_fm( padch, buff, bufcx, fm );
       }
@@ -5306,6 +5369,8 @@ void showfield_printf(char* fmtbuff, char* buff, char** bufcx,
     if ( fm->nocutval && *fmtbuff && (fm->fieldwidth < i_stripansi) )
        fm->fieldwidth = i_stripansi;
     padwidth = fm->fieldwidth - i_stripansi;
+    if ( fm->format_padch )
+       padch = fm->format_padch;
     if( numeric && fm->zeropad ) {
       padch = '0';
     }
@@ -5375,10 +5440,10 @@ void showfield_printf(char* fmtbuff, char* buff, char** bufcx,
        }
        if ( (fm->leftjust == 3) && (*fmtbuff == ' ') ) {
           for ( idx = 0; idx < gapwidth; idx++ ) {
-             safe_chr_fm( (char)' ', buff, bufcx, fm );
+             safe_chr_fm( padch, buff, bufcx, fm );
           }
           if ( spares ) {
-             safe_chr_fm( (char)' ', buff, bufcx, fm );
+             safe_chr_fm( padch, buff, bufcx, fm );
              spares--;
           }
        } else {
@@ -5409,12 +5474,14 @@ void showfield_printf(char* fmtbuff, char* buff, char** bufcx,
 #endif
 #endif
     if( fm->leftjust == 1 ) {
-      padch = ' '; /* don't right-pad with zeros ever */
+      if ( !fm->format_padch )
+         padch = ' '; /* don't right-pad with zeros ever */
       for( idx = 0; idx < padwidth; idx++ ) {
         safe_chr_fm( padch, buff, bufcx, fm );
       }
     } else if ( fm->leftjust == 2 ) {
-      padch = ' '; /* don't right-pad with zeros ever */
+      if ( !fm->format_padch )
+         padch = ' '; /* don't right-pad with zeros ever */
       center_width = padwidth - center_width;
       for( idx = 0; idx < center_width; idx++ ) {
         safe_chr_fm( padch, buff, bufcx, fm );
@@ -5449,6 +5516,7 @@ FUNCTION(fun_printf)
    }
    i_arrayval = i_totwidth = i = i_loopydo = 0;
  
+   fm.format_padch = '\0';
    for( pp = fargs[0]; !fmterror && pp && *pp; pp++ ) {
       switch( *pp ) {
          case '!': /* end of fieldsuppress1 */
@@ -5552,6 +5620,7 @@ FUNCTION(fun_printf)
             }
             break;
          case '$': /* start of format */
+            fm.format_padch = '\0';
             if( *(pp + 1) == '$' ) { /* eat a '$' and don't process format */
                if( !fm.supressing ) {
                   safe_chr('$', buff, bufcx);
@@ -5571,6 +5640,13 @@ FUNCTION(fun_printf)
                for( fmtdone = 0, pp++; !fmterror && !fmtdone && *pp; pp++ ) {
                   formatpass = 0;
                   switch( *pp ) {
+                     case ':': /* Filler Character */
+                        if ( *(pp+1) && *(pp+2) == ':' ) {
+                           pp++;
+                           fm.format_padch=(char)*pp;
+                           pp++;
+                        }
+                        break;
                      case '!': /* fieldsuppress type 1 */
                         if( fm.fieldsupress1 || fm.fieldsupress2 || fm.fieldsupress3 || fm.fieldsupress4 ) {
                            safe_str( "#-1 FIELD SPECIFIER EXPECTED", buff, bufcx );
@@ -5802,7 +5878,7 @@ FUNCTION(fun_timefmt)
   int fmterror = 0;
   int fmtdone = 0;
   long l_offset = 0;
-  struct tm *tms, *tms2;
+  struct tm *tms, *tms2, *tms3;
 
   static char* shortdayname[] = { "Sun", "Mon", "Tue", "Wed",
                                   "Thu", "Fri", "Sat" };
@@ -5820,6 +5896,7 @@ FUNCTION(fun_timefmt)
 
   memset( &fm, 0, sizeof(fm) );
 
+  tzset();
   secs = atol(fargs[1]);
   secs2 = safe_atof(fargs[1]);
   /* tms2 = localtime(&secs); */
@@ -6056,6 +6133,19 @@ FUNCTION(fun_timefmt)
                   break;
                 }
                 formatpass = 1;
+                break;
+              case 't': /* Timezone */
+                fm.lastval = timezone;
+                sprintf(fmtbuff, "%d", fm.lastval);
+                showfield(fmtbuff, buff, bufcx, &fm, 1);
+                fmtdone = 1;
+                break;
+              case 'z': /* is daylight savings */
+                tms3 = localtime64_r(&secs2, tms2);
+                fm.lastval = tms3->tm_isdst;
+                sprintf(fmtbuff, "%d", fm.lastval);
+                showfield(fmtbuff, buff, bufcx, &fm, 1);
+                fmtdone = 1;
                 break;
               case 'H': /* hour 1..12 */
                 fm.lastval = (tms->tm_hour % 12);
@@ -6300,7 +6390,7 @@ FUNCTION(fun_ptimefmt)
       s_buff[n] = 0x5;
     else if (s_buff[n] == '$') {
       s_buff[n] = '%';
-      if ( s_buff[n+1] && !index("aAbBcdHIJmMpSUwWxXyYZ$",s_buff[n+1]) ) {
+      if ( s_buff[n+1] && !index("aAbBcdHIJmMpSUwWxXyYzZ$",s_buff[n+1]) ) {
          safe_str("#-1 INVALID ESCAPE CODE", buff, bufcx);
          free_lbuf(s_buff);
          free_lbuf(s);
@@ -6659,7 +6749,7 @@ crypt_code(char *code, char *text, int type)
     if (!text && !*text)
        return ((char *) "");
     strcpy(codebuff, crunch_code(code));
-    if (!code || !*code || !codebuff || !*codebuff)
+    if (!code || !*code || !*codebuff)
        return (text);
     strcpy(textbuff, "");
 
@@ -7218,6 +7308,73 @@ FUNCTION(fun_hastoggle)
    } else
       safe_str("0",buff,bufcx);
   }
+}
+
+FUNCTION(fun_listprotection)
+{
+   char *tstr, *tstr2, *s_strtokr, *s_strtok, *s_matchstr, c_buf;
+   int aflags, i_key, i_matchint, i_first;
+   dbref thing, aowner;
+
+   if (!fn_range_check("LISTPROTECTION", nfargs, 1, 3, buff, bufcx))
+      return;
+   i_first =  0;
+
+   thing = lookup_player(player, fargs[0], 0);
+   if ( !Good_chk(thing) ) {
+      safe_str("#-1 NO MATCH", buff, bufcx);
+      return;
+   }
+   if ( !Wizard(player) && (thing != player) ) {
+      thing = player;
+   }
+   if ( (nfargs > 1) && *fargs[1] ) {
+      i_key = atoi(fargs[1]);
+   } else { 
+      i_key = 0;
+   }
+   if ( (nfargs > 2) && *fargs[2] ) {
+      c_buf = *fargs[2];
+   } else {
+      c_buf = ':';
+   }
+
+   tstr = alloc_lbuf("listprotection_1");
+   tstr2 = alloc_lbuf("listprotection_2");
+   if (H_Protect(thing)) {
+      (void) atr_get_str(tstr, thing, A_PROTECTNAME,
+                         &aowner, &aflags);
+      if ( *tstr ) {
+         strcpy(tstr2, tstr);
+         s_strtok = strtok_r(tstr2, "\t", &s_strtokr);
+         while ( s_strtok ) {
+            s_matchstr = strchr(s_strtok, ':');
+            if ( s_matchstr ) {
+               *s_matchstr = '\0';
+               i_matchint = atoi(s_matchstr+1);
+               if ( (!i_key || (i_key == 1)) && (i_matchint == 1) ) {
+                  if ( i_first )
+                     safe_chr(c_buf, buff, bufcx);
+                  safe_str(s_strtok, buff, bufcx);
+                  i_first = 1;
+               } else if ( (!i_key || (i_key == 2)) && (i_matchint == 0) ) {
+                  if ( i_first )
+                     safe_chr(c_buf, buff, bufcx);
+                  safe_str(s_strtok, buff, bufcx);
+                  i_first = 1;
+               }
+            } else if ( !i_key || (i_key == 2) ) {
+               if ( i_first )
+                  safe_chr(c_buf, buff, bufcx);
+               safe_str(s_strtok, buff, bufcx);
+               i_first = 1;
+            }
+            s_strtok = strtok_r(NULL, "\t", &s_strtokr);
+         }
+      }
+   }
+   free_lbuf(tstr);
+   free_lbuf(tstr2);
 }
 
 FUNCTION(fun_listfunctions)
@@ -8981,6 +9138,9 @@ FUNCTION(fun_zfunlocal)
       savereg[x] = alloc_lbuf("ulocal_reg");
       pt = savereg[x];
       safe_str(mudstate.global_regs[x],savereg[x],&pt);
+      if ( mudstate.global_regs_wipe == 1 ) {
+         *mudstate.global_regs[x] = '\0';
+      }
     }
     result = exec(player, cause, player, EV_FCHECK | EV_EVAL, atext,
                   &(fargs[1]), nfargs - 1);
@@ -9070,6 +9230,9 @@ FUNCTION(fun_zfunldefault)
       savereg[x] = alloc_lbuf("ulocal_reg");
       pt = savereg[x];
       safe_str(mudstate.global_regs[x],savereg[x],&pt);
+      if ( mudstate.global_regs_wipe == 1 ) {
+         *mudstate.global_regs[x] = '\0';
+      }
     }
     if ( nfargs > 2 ) {
        /* initialize it */
@@ -9179,6 +9342,9 @@ FUNCTION(fun_zfun2ldefault)
       savereg[x] = alloc_lbuf("ulocal_reg");
       pt = savereg[x];
       safe_str(mudstate.global_regs[x],savereg[x],&pt);
+      if ( mudstate.global_regs_wipe == 1 ) {
+         *mudstate.global_regs[x] = '\0';
+      }
     }
     if ( nfargs > 2 ) {
        /* initialize it */
@@ -9686,6 +9852,9 @@ FUNCTION(fun_ulocal)
       savereg[x] = alloc_lbuf("ulocal_reg");
       pt = savereg[x];
       safe_str(mudstate.global_regs[x],savereg[x],&pt);
+      if ( mudstate.global_regs_wipe == 1 ) {
+         *mudstate.global_regs[x] = '\0';
+      }
     }
 
     result = exec(player, cause, player, EV_FCHECK | EV_EVAL, atext,
@@ -9763,6 +9932,9 @@ FUNCTION(fun_uldefault)
       savereg[x] = alloc_lbuf("ulocal_reg");
       pt = savereg[x];
       safe_str(mudstate.global_regs[x],savereg[x],&pt);
+      if ( mudstate.global_regs_wipe == 1 ) {
+         *mudstate.global_regs[x] = '\0';
+      }
     }
 
     if ( nfargs > 2 ) {
@@ -9855,6 +10027,9 @@ FUNCTION(fun_u2local)
       savereg[x] = alloc_lbuf("ulocal_reg");
       pt = savereg[x];
       safe_str(mudstate.global_regs[x],savereg[x],&pt);
+      if ( mudstate.global_regs_wipe == 1 ) {
+         *mudstate.global_regs[x] = '\0';
+      }
     }
 
     result = exec(thing, cause, player, EV_FCHECK | EV_EVAL, atext,
@@ -9956,6 +10131,9 @@ FUNCTION(fun_zfun2local)
       savereg[x] = alloc_lbuf("ulocal_reg");
       pt = savereg[x];
       safe_str(mudstate.global_regs[x],savereg[x],&pt);
+      if ( mudstate.global_regs_wipe == 1 ) {
+         *mudstate.global_regs[x] = '\0';
+      }
     }
     result = exec(thing, cause, player, EV_FCHECK | EV_EVAL, atext,
                   &(fargs[1]), nfargs - 1);
@@ -10031,6 +10209,9 @@ FUNCTION(fun_u2ldefault)
       savereg[x] = alloc_lbuf("ulocal_reg");
       pt = savereg[x];
       safe_str(mudstate.global_regs[x],savereg[x],&pt);
+      if ( mudstate.global_regs_wipe == 1 ) {
+         *mudstate.global_regs[x] = '\0';
+      }
     }
 
     if ( nfargs > 2 ) {
@@ -10555,6 +10736,19 @@ FUNCTION(fun_localfunc)
   local_function(fargs[0], buff, bufcx, player, cause, fargs+1, nfargs-1, cargs, ncargs);
 }
 
+FUNCTION(fun_privatize)
+{
+    if ( !fargs[0] || !*fargs[0] ) {
+       safe_str("#-1 FUNCTION (PRIVATIZE) EXPECTS 1 ARGUMENT [RECEIVED 0]", buff, bufcx);
+       return;
+    }
+    if ( atoi(fargs[0]) == 0 ) {
+       mudstate.global_regs_wipe = 0;
+    } else {
+       mudstate.global_regs_wipe = 1;
+    }
+}
+
 /* ---------------------------------------------------------------------------
  * fun_localize: Keep function's inside of it localized with memory registers
  * Idea borrowed from TinyMUSH 3.0
@@ -10568,6 +10762,9 @@ FUNCTION(fun_localize)
       savereg[x] = alloc_lbuf("ulocal_reg");
       pt = savereg[x];
       safe_str(mudstate.global_regs[x],savereg[x],&pt);
+      if ( mudstate.global_regs_wipe == 1 ) {
+         *mudstate.global_regs[x] = '\0';
+      }
     }
     result = exec(player, cause, caller, EV_FCHECK | EV_STRIP | EV_EVAL, fargs[0],
     cargs, ncargs);
@@ -11232,21 +11429,20 @@ FUNCTION(fun_controls)
 
 FUNCTION(fun_sees)
 {
-    dbref it, thing;
-    int can_see_loc;
+    dbref it, thing, thingexit;
+    int can_see_loc, i_chkexit, key, i_loc, i_match;
+
+    if (!fn_range_check("SEES", nfargs, 2, 3, buff, bufcx))
+       return;
+
+    i_loc = thingexit = NOTHING;
+    i_match = i_chkexit = key = 0;
+
+    if ( (nfargs > 2) && *fargs[2] )
+       i_chkexit = atoi(fargs[2]);
 
     it = match_thing(player, fargs[0]);
     if ( !Good_obj(it) ) {
-        ival(buff, bufcx, 0);
-        return;
-    }
-
-    thing = match_thing(player, fargs[1]);
-    if (!Good_obj(thing)) {
-        ival(buff, bufcx, 0);
-        return;
-    }
-    if (!Good_obj(Location(thing))) {
         ival(buff, bufcx, 0);
         return;
     }
@@ -11254,16 +11450,52 @@ FUNCTION(fun_sees)
         ival(buff, bufcx, 0);
         return;
     }
-
-    can_see_loc = (!Dark(Location(thing)) || (Dark(Location(thing)) &&
-                    could_doit(it, Location(thing), A_LDARK, 0)) ||
-                   (mudconf.see_own_dark && MyopicExam(player, Location(thing))));
-    if ((can_see(it, thing, can_see_loc) && mudconf.player_dark) ||
-        (can_see2(it, thing, can_see_loc) && !mudconf.player_dark)) {
-        ival(buff, bufcx, 1);
-    }
-    else {
-        ival(buff, bufcx, 0);
+    thing = match_thing_quiet(player, fargs[1]);
+    if ( i_chkexit != 0 ) {
+       i_match = 1;
+       i_loc = Location(it);
+       if ( !Good_chk(i_loc) ) {
+          i_match = 0;
+       } else {
+          init_match_check_keys(player, fargs[1], TYPE_EXIT);
+          match_exit_with_parents();
+          thingexit = last_match_result();
+          if ( !Good_chk(thingexit) || !Good_chk(where_is(thingexit)) ) {
+             i_match = 0;
+          } else {
+             if (Examinable(it, i_loc))
+                 key |= VE_LOC_XAM;
+             if (Dark(i_loc) && !(!Cloak(i_loc) && could_doit( it, i_loc, A_LDARK, 0 )))
+                 key |= VE_LOC_DARK;
+             if (exit_visible(thingexit, it, key)) {
+                if ( !(Flags3(thingexit) & PRIVATE) || (where_is(thingexit) == it) ) {
+                   ival(buff, bufcx, 1);
+                   return;
+                }
+             }
+          }
+       }
+       i_match = 0;
+    } 
+    if ( i_match == 0 ) {
+       if ( !Good_obj(thing) ) {
+           ival(buff, bufcx, 0);
+           return;
+       }
+       if (!Good_obj(Location(thing)) ) {
+           ival(buff, bufcx, 0);
+           return;
+       }
+       can_see_loc = (!Dark(Location(thing)) || (Dark(Location(thing)) &&
+                       could_doit(it, Location(thing), A_LDARK, 0)) ||
+                      (mudconf.see_own_dark && MyopicExam(player, Location(thing))));
+       if ((can_see(it, thing, can_see_loc) && mudconf.player_dark) ||
+           (can_see2(it, thing, can_see_loc) && !mudconf.player_dark)) {
+           ival(buff, bufcx, 1);
+       }
+       else {
+           ival(buff, bufcx, 0);
+       }
     }
 }
 
@@ -11476,10 +11708,10 @@ FUNCTION(fun_listmatch)
             first = 1;
          }
       }
-      for (i = 0; i < 10; i++) {
-         if (t_args[i])
-             free_lbuf(t_args[i]);
-      }
+   }
+   for (i = 0; i < 10; i++) {
+      if (t_args[i])
+          free_lbuf(t_args[i]);
    }
 }
 /* ---------------------------------------------------------------------------
@@ -11503,10 +11735,10 @@ FUNCTION(fun_setqmatch)
             first = 1;
          }
       }
-      for (i = 0; i < 10; i++) {
-         if (t_args[i])
-             free_lbuf(t_args[i]);
-      }
+   }
+   for (i = 0; i < 10; i++) {
+      if (t_args[i])
+          free_lbuf(t_args[i]);
    }
    if ( sep != 'n' )
       ival(buff, bufcx, first);
@@ -11996,10 +12228,13 @@ FUNCTION(fun_extract)
  */
 FUNCTION(fun_delextract)
 {
-    char *curr, *objstring, *objstring2, *result, *cp, *sep_buf, sep;
+    char *curr, *objstring, *cp, *sep_buf, sep;
     int cntr, first, second, flag;
 
     if (!fn_range_check("DELEXTRACT", nfargs, 3, 4, buff, bufcx))
+       return;
+
+    if ( !*fargs[0] )
        return;
 
     first = atoi(fargs[1]);
@@ -12021,13 +12256,9 @@ FUNCTION(fun_delextract)
        sep = ' ';
     }
 
-    objstring2  = exec(player, cause, caller,
-                       EV_STRIP | EV_FCHECK | EV_EVAL, fargs[0], cargs, ncargs);
-
     curr = alloc_lbuf("fun_delextract");
     cp = curr;
-    safe_str(strip_ansi(objstring2),curr,&cp);
-    free_lbuf(objstring2);
+    safe_str(strip_ansi(fargs[0]),curr,&cp);
     cp = curr;
     cp = trim_space_sep(cp, sep);
     if (!*cp) {
@@ -12040,13 +12271,10 @@ FUNCTION(fun_delextract)
     while (cp) {
         objstring = split_token(&cp, sep);
         if ( cntr < first || cntr > second ) {
-           result = exec(player, cause, caller,
-                         EV_STRIP | EV_FCHECK | EV_EVAL, objstring, cargs, ncargs);
            if (!flag)
              safe_chr(sep, buff, bufcx);
            flag = 0;
-           safe_str(result, buff, bufcx);
-           free_lbuf(result);
+           safe_str(objstring, buff, bufcx);
         }
         cntr++;
     }
@@ -13078,7 +13306,7 @@ FUNCTION(fun_ncomp)
 FUNCTION(fun_lzone)
 {
   dbref it;
-  int i_cntr, i_type, i_max, i_ceil;
+  int i_cntr, i_type, i_max, i_ceil, i_domin, i_domax;
   char *tbuf, c_type;
   ZLISTNODE *ptr;
 
@@ -13089,9 +13317,14 @@ FUNCTION(fun_lzone)
 
   i_type = 0;
   c_type = '\0';
+  i_domin = i_domax = 0;
   if ( (nfargs > 1) && *fargs[1] ) {
      i_type = atoi(fargs[1]);
      c_type = *fargs[1];
+     if ( (c_type == '~') && (strchr(fargs[1], '-') != NULL) ) {
+        i_domin = atoi(fargs[1]+1);
+        i_domax = i_domin + atoi(strchr(fargs[1], '-')+1) - 1;
+     }
   }
   if ( i_type < 0 )
      i_type = 0;
@@ -13105,6 +13338,8 @@ FUNCTION(fun_lzone)
     for( ptr = db[it].zonelist; ptr; ptr = ptr->next ) {
        i_cntr++;
        if ( (i_type && (i_cntr < i_max)) || (c_type == 'l'))
+          continue;
+       if ( (i_domin > 0) && ((i_cntr < i_domin) || (i_cntr > i_domax)) )
           continue;
        if ( i_type && (i_cntr >= i_ceil) )
           break;
@@ -13214,7 +13449,9 @@ FUNCTION(fun_xcon)
     first = atoi(fargs[1]);
     how_many = atoi(fargs[2]);
     if ( first <= 0 || how_many <= 0 ) {
-       safe_str("#-1", buff, bufcx);
+       if ( !mudconf.mux_lcon_compat ) {
+          safe_str("#-1", buff, bufcx);
+       }
        return;
     }
 
@@ -13371,12 +13608,18 @@ FUNCTION(fun_xcon)
            }
          }
          free_sbuf(tbuf);
-         if (i == j)
-           safe_str("#-1", buff, bufcx);
+         if (i == j) {
+           if ( !mudconf.mux_lcon_compat ) {
+              safe_str("#-1", buff, bufcx);
+           }
+         }
      } else if (Good_obj(it) && !Has_contents(it)) {
-       return;
-     } else
-         safe_str("#-1", buff, bufcx);
+        return;
+     } else {
+        if ( !mudconf.mux_lcon_compat ) {
+           safe_str("#-1", buff, bufcx);
+        }
+     }
 }
 
 /* ---------------------------------------------------------------------------
@@ -13582,12 +13825,18 @@ FUNCTION(fun_lcon)
             }
         }
         free_sbuf(tbuf);
-        if (i == j)
-            safe_str("#-1", buff, bufcx);
+        if (i == j) {  
+            if ( !mudconf.mux_lcon_compat ) {
+               safe_str("#-1", buff, bufcx);
+            }
+        }
     } else if ( Good_obj(it) && !Has_contents(it) ) {
         return;
-    } else
-       safe_str("#-1", buff, bufcx);
+    } else {
+       if ( !mudconf.mux_lcon_compat ) {
+          safe_str("#-1", buff, bufcx);
+       }
+    }
 }
 
 /* ---------------------------------------------------------------------------
@@ -13599,7 +13848,7 @@ FUNCTION(fun_lexits)
     dbref thing, it, parent;
     char *tbuf, *s, *namebuff, *namebufcx;
     int exam, lev, key;
-    int gotone = 0, i_type = 0, i_pageval = 0, i_counter = 0, i_start = 0;
+    int gotone = 0, i_type = 0, i_pageval = 0, i_counter = 0, i_start = 0, i_max = 0, i_min = -1;
 
     if (!fn_range_check("LEXITS", nfargs, 1, 4, buff, bufcx))
       return;
@@ -13612,7 +13861,10 @@ FUNCTION(fun_lexits)
 
     if ( (nfargs > 3) && *fargs[3] ) {
        if ( *fargs[3] == 'l' ) {
-          i_type = -1;
+          i_type = -1;   
+       } else if ( (*fargs[3] == '~') && (strchr(fargs[3], '-') != NULL) ) {
+          i_min = atoi(fargs[3]+1) - 1;
+          i_max = i_min + atoi(strchr(fargs[3], '-')+1) - 1;
        } else {
           i_type = atoi(fargs[3]);
           if ( i_type < 0 )
@@ -13658,52 +13910,48 @@ FUNCTION(fun_lexits)
               if ( !(Flags3(thing) & PRIVATE) || (where_is(thing) == it) ) {
                  if ( i_type == -1 ) {
                     i_counter++;
+                 } else if ( (i_type > 0) && ((i_counter < i_start) || (i_counter >= (i_start + i_pageval))) ) {
+                    i_counter++;
+                 } else if ( (i_min >= 0) && ((i_counter < i_min) || (i_counter > i_max)) ) {
+                    i_counter++;
                  } else if ( (nfargs > 2) && *fargs[2] && (atoi(fargs[2]) == 1)) {
-                    if ( (i_type > 0) && ((i_counter < i_start) || (i_counter >= (i_start + i_pageval))) ) {
-                       i_counter++;
+                    namebuff  = namebufcx = alloc_lbuf("fun_lexits.namebuff");
+                    if ( !mudconf.read_rem_name &&
+                         (!nearby_exam_or_control(player, thing) ||
+                           (Cloak(thing) && !Wizard(player)) ||
+                           (SCloak(thing) && Cloak(thing) && !Immortal(player))) ) {
+                        safe_str("#-1", namebuff, &namebufcx);
                     } else {
-                       namebuff  = namebufcx = alloc_lbuf("fun_lexits.namebuff");
-                       if ( !mudconf.read_rem_name &&
-                            (!nearby_exam_or_control(player, thing) ||
-                              (Cloak(thing) && !Wizard(player)) ||
-                              (SCloak(thing) && Cloak(thing) && !Immortal(player))) ) {
-                           safe_str("#-1", namebuff, &namebufcx);
-                       } else {
-                           safe_str(Name(thing), namebuff, &namebufcx);
-                           for (s = namebuff; *s && (*s != ';'); s++);
-                              *s = '\0';
-                       }
-                       if (gotone) {
-                          if ( (nfargs > 1) && *fargs[1] ) {
-                          /* tbuf is an SBUF so we can't just add this to it */
-                             safe_str(fargs[1], buff, bufcx);
-                          } else {
-                             safe_chr(' ', buff, bufcx);
-                          }
-                       }
-                       safe_str(namebuff, buff, bufcx);
-                       gotone = 1;
-                       free_lbuf(namebuff);
-                       i_counter++;
+                        safe_str(Name(thing), namebuff, &namebufcx);
+                        for (s = namebuff; *s && (*s != ';'); s++);
+                           *s = '\0';
                     }
+                    if (gotone) {
+                       if ( (nfargs > 1) && *fargs[1] ) {
+                       /* tbuf is an SBUF so we can't just add this to it */
+                          safe_str(fargs[1], buff, bufcx);
+                       } else {
+                          safe_chr(' ', buff, bufcx);
+                       }
+                    }
+                    safe_str(namebuff, buff, bufcx);
+                    gotone = 1;
+                    free_lbuf(namebuff);
+                    i_counter++;
                  } else {
-                    if ( (i_type > 0) && ((i_counter < i_start) || (i_counter >= (i_start + i_pageval))) ) {
-                       i_counter++;
-                    } else {
-                       if (gotone) {
-                          if ( (nfargs > 1) && *fargs[1] ) {
-                             safe_str(fargs[1], buff, bufcx);
-                             sprintf(tbuf, "#%d", thing);
-                          } else {
-                             sprintf(tbuf, " #%d", thing);
-                          }
-                       } else {
+                    if (gotone) {
+                       if ( (nfargs > 1) && *fargs[1] ) {
+                          safe_str(fargs[1], buff, bufcx);
                           sprintf(tbuf, "#%d", thing);
+                       } else {
+                          sprintf(tbuf, " #%d", thing);
                        }
-                       gotone = 1;
-                       safe_str(tbuf, buff, bufcx);
-                       i_counter++;
+                    } else {
+                       sprintf(tbuf, "#%d", thing);
                     }
+                    gotone = 1;
+                    safe_str(tbuf, buff, bufcx);
+                    i_counter++;
                  }
               }
            }
@@ -14257,9 +14505,10 @@ FUNCTION(fun_escape)
               if ( !(s2 && strchr(s2, *s)) )
                  safe_chr('\\', buff, bufcx);
           default:
-              if (d == *bufcx)
+              if ( (d == *bufcx) && !(s2 && strchr(s2, 'f')) ) {
                  safe_chr('\\', buff, bufcx);
-                 safe_chr(*s, buff, bufcx);
+              }
+              safe_chr(*s, buff, bufcx);
        }
        s++;
     }
@@ -15254,7 +15503,7 @@ parse_lattr(char *buff, char **bufcx, dbref player, dbref cause, dbref caller,
             int i_is_parent, int i_is_cluster)
 {
     dbref thing, target, aowner;
-    int ca, first, chk_cmd, aflags, i_pageval, i_currcnt, i_dispcnt, i_retpage, i_allattrs, i_ntfnd;
+    int ca, first, chk_cmd, aflags, i_pageval, i_currcnt, i_dispcnt, i_retpage, i_allattrs, i_ntfnd, i_min, i_max;
     char *s_shoveattr, c_lookup, *s_tmpbuff, *s_tmpbuffptr, *s_ptr, *tpr_buff, *tprp_buff, *s_storname[3];
     ATTR *attr;
     OBLOCKMASTER master;
@@ -15304,6 +15553,12 @@ parse_lattr(char *buff, char **bufcx, dbref player, dbref cause, dbref caller,
        /* internal flags should never be above 32 chars long */
        if ( strlen(fargs[3]) > 32 )
           *(fargs[3]+31) = '\0';
+    }
+    if ( (c_lookup == '~') && (strchr(fargs[2], '-') != NULL) ) {
+       i_min = atoi(fargs[2]+1);
+       i_max = i_min + atoi(strchr(fargs[2], '-')+1) - 1;
+    } else {
+       i_min = i_max = 0;
     }
     first = 1;
     olist_init(&master);
@@ -15382,6 +15637,9 @@ parse_lattr(char *buff, char **bufcx, dbref player, dbref cause, dbref caller,
                        if ( (i_currcnt <= (PAGE_VAL * (i_pageval - 1))) || (i_dispcnt >= PAGE_VAL) )
                           continue;
                        i_dispcnt++;
+                    }
+                    if ( (i_max != 0) && ((i_currcnt > i_max) || (i_currcnt < i_min)) ) {
+                       continue;
                     }
                     if (chk_cmd > 0) {
                        atr_get_str(s_shoveattr, thing, attr->number, &aowner, &aflags);
@@ -15989,12 +16247,18 @@ FUNCTION(fun_strdistance)
 
 FUNCTION(fun_search)
 {
-   (void)search_guts(player, cause, caller, fargs, buff, bufcx, 0);
+   if ( mudconf.switch_search == 0 )
+      (void)search_guts(player, cause, caller, fargs, buff, bufcx, 0);
+   else
+      (void)search_guts(player, cause, caller, fargs, buff, bufcx, 1);
 }
 
 FUNCTION(fun_searchng)
 {
-   (void)search_guts(player, cause, caller, fargs, buff, bufcx, 1);
+   if ( mudconf.switch_search == 0 )
+      (void)search_guts(player, cause, caller, fargs, buff, bufcx, 1);
+   else
+      (void)search_guts(player, cause, caller, fargs, buff, bufcx, 0);
 }
 
 
@@ -17460,7 +17724,7 @@ FUNCTION(fun_map)
     dbref aowner, thing;
     int aflags, anum, first, i, dynargs;
     ATTR *ap;
-    char *atext, *result, *cp, *atextbuf, sep, osep;
+    char *atext, *result, *cp, *atextbuf, sep, *osep;
     char *s_dynargs[MAX_ARGS+1];
 
     dynargs = 1;
@@ -17472,10 +17736,15 @@ FUNCTION(fun_map)
     else
        sep = ' ';
 
-    if ( (nfargs > 3) && *fargs[3] )
-       osep = *fargs[3];
-    else
-       osep = sep;
+    osep = alloc_lbuf("fun_map_osep");
+    if ( (nfargs > 3) ) {
+       if ( *fargs[3] )
+          strcpy(osep, fargs[3]);
+       else
+          memset(osep, '\0', LBUF_SIZE);
+    } else {
+       sprintf(osep, "%c", sep);
+    }
 
     for ( i = 0; i < (MAX_ARGS+1); i++ )
         s_dynargs[i] = NULL;
@@ -17501,15 +17770,18 @@ FUNCTION(fun_map)
     /* Make sure we got a good attribute */
 
     if (!ap) {
+       free_lbuf(osep);
        return;
     }
     /* Use it if we can access it, otherwise return an error. */
 
     atext = atr_pget(thing, ap->number, &aowner, &aflags);
     if (!atext) {
+       free_lbuf(osep);
        return;
     } else if (!*atext || !See_attr(player, thing, ap, aowner, aflags, 0)) {
        free_lbuf(atext);
+       free_lbuf(osep);
        return;
     }
     /* now process the list one element at a time */
@@ -17526,14 +17798,15 @@ FUNCTION(fun_map)
         else
            result = exec(player, cause, caller,
                          EV_STRIP | EV_FCHECK | EV_EVAL, atextbuf, s_dynargs, dynargs);
-        if (!first)
-           safe_chr(osep, buff, bufcx);
+        if (!first && *osep)
+           safe_str(osep, buff, bufcx);
         first = 0;
         safe_str(result, buff, bufcx);
         free_lbuf(result);
     }
     free_lbuf(atext);
     free_lbuf(atextbuf);
+    free_lbuf(osep);
 }
 
 /* ---------------------------------------------------------------------------
@@ -19575,7 +19848,7 @@ FUNCTION(fun_pushregs)
 {
     int regnum, cntr;
 
-    if ( !*fargs[0] ) {
+    if ( !fargs[0] || !*fargs[0] ) {
        safe_str("#-1 FUNCTION (PUSHREGS) EXPECTS 1 ARGUMENT [RECEIVED 0]", buff, bufcx);
        return;
     }
@@ -19681,7 +19954,8 @@ FUNCTION(fun_setq_old)
 
     regnum = -1;
     i_namefnd = 0;
-    if ( (strcmp(fargs[0], "!") == 0) && (nfargs > 2) && *fargs[2] ) {
+    if ( ((strcmp(fargs[0], "!") == 0) || strcmp(fargs[0], "+") == 0) && 
+         (nfargs > 2) && *fargs[2] ) {
        /* First, walk the list to match the variable name */
        for ( i = 0 ; i < MAX_GLOBAL_REGS; i++ ) {
           if ( mudstate.global_regsname[i] && *mudstate.global_regsname[i] &&
@@ -19694,6 +19968,10 @@ FUNCTION(fun_setq_old)
        if ( !i_namefnd ) {
           for ( i = 0 ; i < MAX_GLOBAL_REGS; i++ ) {
              if ( !mudstate.global_regsname[i] || !*mudstate.global_regsname[i] ) {
+                if ( (strcmp(fargs[0], "+") == 0) && mudstate.global_regs[i] &&
+                  *mudstate.global_regs[i] ) {
+                   continue;
+                }
                 regnum = i;
                 i_namefnd = 1;
                 break;
@@ -19771,7 +20049,8 @@ FUNCTION(fun_setq)
 
     i_namefnd = 0;
     regnum = -1;
-    if ( (strcmp(result_orig, "!") == 0) && (nfargs > 2) && *fargs[2] ) {
+    if ( ((strcmp(result_orig, "!") == 0) || (strcmp(result_orig, "+") == 0)) && 
+          (nfargs > 2) && *fargs[2] ) {
        /* First, walk the list to match the variable name */
        for ( i = 0 ; i < MAX_GLOBAL_REGS; i++ ) {
           if ( mudstate.global_regsname[i] && *mudstate.global_regsname[i] &&
@@ -19784,6 +20063,10 @@ FUNCTION(fun_setq)
        if ( !i_namefnd ) {
           for ( i = 0 ; i < MAX_GLOBAL_REGS; i++ ) {
              if ( !mudstate.global_regsname[i] || !*mudstate.global_regsname[i] ) {
+                if ( (strcmp(result_orig, "+") == 0) && mudstate.global_regs[i] &&
+                  *mudstate.global_regs[i] ) {
+                   continue;
+                }
                 regnum = i;
                 i_namefnd = 1;
                 break;
@@ -19866,7 +20149,8 @@ FUNCTION(fun_setr_old)
 
     i_namefnd = 0;
     regnum = -1;
-    if ( (strcmp(fargs[0], "!") == 0) && (nfargs > 2) && *fargs[2] ) {
+    if ( ((strcmp(fargs[0], "!") == 0) || (strcmp(fargs[0], "+") == 0)) && 
+         (nfargs > 2) && *fargs[2] ) {
        /* First, walk the list to match the variable name */
        for ( i = 0 ; i < MAX_GLOBAL_REGS; i++ ) {
           if ( mudstate.global_regsname[i] && *mudstate.global_regsname[i] &&
@@ -19879,6 +20163,10 @@ FUNCTION(fun_setr_old)
        if ( !i_namefnd ) {
           for ( i = 0 ; i < MAX_GLOBAL_REGS; i++ ) {
              if ( !mudstate.global_regsname[i] || !*mudstate.global_regsname[i] ) {
+                if ( (strcmp(fargs[0], "+") == 0) && mudstate.global_regs[i] &&
+                  *mudstate.global_regs[i] ) {
+                   continue;
+                }
                 regnum = i;
                 i_namefnd = 1;
                 break;
@@ -19958,7 +20246,8 @@ FUNCTION(fun_setr)
 
     i_namefnd = 0;
     regnum = -1;
-    if ( (strcmp(result_orig, "!") == 0) && (nfargs > 2) && *fargs[2] ) {
+    if ( ((strcmp(result_orig, "!") == 0) || (strcmp(result_orig, "+") == 0)) && 
+         (nfargs > 2) && *fargs[2] ) {
        /* First, walk the list to match the variable name */
        for ( i = 0 ; i < MAX_GLOBAL_REGS; i++ ) {
           if ( mudstate.global_regsname[i] && *mudstate.global_regsname[i] &&
@@ -19971,6 +20260,10 @@ FUNCTION(fun_setr)
        if ( !i_namefnd ) {
           for ( i = 0 ; i < MAX_GLOBAL_REGS; i++ ) {
              if ( !mudstate.global_regsname[i] || !*mudstate.global_regsname[i] ) {
+                if ( (strcmp(result_orig, "+") == 0) && mudstate.global_regs[i] &&
+                  *mudstate.global_regs[i] ) {
+                   continue;
+                }
                 regnum = i;
                 i_namefnd = 1;
                 break;
@@ -20325,6 +20618,11 @@ FUNCTION(fun_chr)
 
 /* fun_trace: set or unset the trace flag on an object */
 
+FUNCTION(fun_chktrace)
+{
+   ival(buff, bufcx, ((Flags(player) & TRACE) ? 1 : 0));
+}
+
 FUNCTION(fun_trace)
 {
   if( atoi(fargs[0]) ) {
@@ -20467,11 +20765,14 @@ FUNCTION(fun_rjc)
 FUNCTION(fun_vattrcnt)
 {
   dbref target;
-  char *cp, s_buff[100];
+  char *cp, *s_mbuff;
   int i_key, anum, count;
 
   if (!fn_range_check("VATTRCNT", nfargs, 1, 2, buff, bufcx))
      return;
+
+
+  i_key = anum = 0;
 
   if ( (nfargs > 1) && *fargs[1] )
      i_key = atoi(fargs[1]);
@@ -20490,9 +20791,11 @@ FUNCTION(fun_vattrcnt)
           if (anum >= A_USER_START) count++;
        }
        if ( db[target].nvattr != count ) {
-          sprintf(s_buff, "Value missmatch on user-count for dbref#%d.  was %d now %d.", target, db[target].nvattr, count);
+          s_mbuff = alloc_mbuf("fun_vattr");
+          sprintf(s_mbuff, "Value missmatch on user-count for dbref#%d.  was %d now %d.", target, db[target].nvattr, count);
           db[target].nvattr = count;
-          notify_quiet(player, s_buff);
+          notify_quiet(player, s_mbuff);
+          free_mbuf(s_mbuff);
        }
        safe_str(myitoa(db[target].nvattr), buff, bufcx);
     } else {
@@ -20761,6 +21064,36 @@ FUNCTION(fun_lastcreate)
  * as well.
  */
 #ifdef USE_SIDEEFFECT
+FUNCTION(fun_cluster_add)
+{
+   CMDENT *cmdp;
+   char *s_buf1;
+
+   if ( !(mudconf.sideeffects & SIDE_CLUSTER_ADD) ) {
+      notify(player, "#-1 FUNCTION DISABLED");
+      return;
+   }
+   if ( !SideFX(player) || Fubar(player) || Slave(player) || return_bit(player) < mudconf.restrict_sidefx ) {
+      notify(player, "Permission denied.");
+      return;
+   }
+   mudstate.sidefx_currcalls++;
+   cmdp = (CMDENT *)hashfind((char *)"@cluster", &mudstate.command_htab);
+   if ( !check_access(player, cmdp->perms, cmdp->perms2, 0) || cmdtest(player, "@cluster") ||
+         cmdtest(Owner(player), "@cluster") || zonecmdtest(player, "@cluster") ) {
+      notify(player, "Permission denied.");
+      return;
+   }
+   if ( !*fargs[0] || !*fargs[1] ) {
+      notify(player, "Cluster object must be a valid object.");
+      return;
+   }
+   s_buf1 = alloc_lbuf("fun_cluster_add");
+   sprintf(s_buf1, "%.1500s=%.1500s", fargs[0], fargs[1]);
+   do_cluster( player, cause, (SIDEEFFECT|CLUSTER_ADD), s_buf1, cargs, ncargs);
+   free_lbuf(s_buf1);
+}
+
 FUNCTION(fun_set)
 {
    char *s_buf1, *s_buf2;
@@ -21237,9 +21570,112 @@ FUNCTION(fun_tel)
          fargs[0], ptrs, nitems );
 }
 
+FUNCTION(fun_cluster_wipe)
+{
+   CMDENT *cmdp;
+   ATTR *attr;
+   char *s_buff, *s_buff2, *s_buffptr, *s_return, *s_strtok, *s_strtokptr;
+   int target, aflags, i_nomatch, i_nowipe, i_wipecnt, i_totobjs;
+   dbref aowner;
+   time_t starttme, endtme;
+   double timechk;
+
+   i_totobjs = i_nomatch = i_nowipe = i_wipecnt = 0;
+   if ( !(mudconf.sideeffects & SIDE_WIPE) ) {
+      notify(player, "#-1 FUNCTION DISABLED");
+      return;
+   }
+   if ( !SideFX(player) || Fubar(player) || return_bit(player) < mudconf.restrict_sidefx ) {
+      notify(player, "Permission denied.");
+      return;
+   }
+   mudstate.sidefx_currcalls++;
+   cmdp = (CMDENT *)hashfind((char *)"@wipe", &mudstate.command_htab);
+   if ( !check_access(player, cmdp->perms, cmdp->perms2, 0) || cmdtest(player, "@wipe") ||
+         cmdtest(Owner(player), "@wipe") || zonecmdtest(player, "@wipe") ) {
+      notify(player, "Permission denied.");
+      return;
+   }
+   s_buff = alloc_lbuf("fun_cluster_wipe");
+   s_buff2 = alloc_lbuf("fun_cluster_wipe2");
+   if ( strchr(fargs[0], '/') != NULL ) {
+      strcpy(s_buff, fargs[0]);
+      s_buffptr = s_buff;
+      while ( *s_buffptr ) {
+         if ( *s_buffptr == '/' ) {
+            *s_buffptr = '\0';
+            strcpy(s_buff2, s_buffptr+1);
+            break;
+         }
+         s_buffptr++;
+      }
+   } else {
+      strcpy(s_buff, fargs[0]);
+   }
+   s_return = exec(player, cause, caller,  EV_FCHECK | EV_EVAL | EV_STRIP, s_buff, cargs, ncargs);
+   target = match_thing(player, s_return);
+   free_lbuf(s_return);
+   if ( !Good_chk(target) || !Cluster(target) ) {
+      free_lbuf(s_buff);
+      free_lbuf(s_buff2);
+      safe_str("#-1 NO SUCH CLUSTER", buff, bufcx);
+      return;
+   }
+
+   endtme = time(NULL);
+   starttme = mudstate.chkcpu_stopper;
+   if ( mudconf.cputimechk < 10 )
+      timechk = 10;
+   else if ( mudconf.cputimechk > 3600 )
+      timechk = 3600;
+   else
+      timechk = mudconf.cputimechk;
+
+   attr = atr_str("_CLUSTER");
+   s_return = atr_get(target, attr->number, &aowner, &aflags);
+   s_strtok = strtok_r(s_return, " ", &s_strtokptr);
+
+   while ( s_strtok ) {
+      endtme = time(NULL);
+      if ( mudstate.chkcpu_toggle || ((endtme - starttme) > timechk) ) {
+          mudstate.chkcpu_toggle = 1;
+      }
+      if ( mudstate.chkcpu_toggle ) {
+         notify_quiet(player, "CPU: cluster wipe exceeded cpu limit.");
+         break;
+      }
+      memset(s_buff, '\0', LBUF_SIZE);
+      if ( s_buff2 && *s_buff2 ) {
+         sprintf(s_buff, "%s/%s", s_strtok, s_buff2);
+      } else {
+         sprintf(s_buff, "%s", s_strtok);
+      }
+      i_totobjs++;
+      do_wipe(player, cause, (SIDEEFFECT), s_buff);
+      switch ( mudstate.wipe_state ) {
+         case -1: i_nomatch++;
+                  break;
+         case -2: i_nowipe++;
+                  break;
+         default: i_wipecnt+=mudstate.wipe_state;
+                  break;
+      }
+      s_strtok = strtok_r(NULL, " ", &s_strtokptr);
+   }
+   if ( TogNoisy(player) ) {
+      sprintf(s_buff2, "Wiped: [%d objects: %d not found, %d safe] %d attributes wiped.", 
+                       i_totobjs, i_nomatch, i_nowipe, i_wipecnt);
+      notify(player, s_buff2);
+   }
+   free_lbuf(s_return);
+   free_lbuf(s_buff2);
+   free_lbuf(s_buff);
+}
+
 FUNCTION(fun_wipe)
 {
    CMDENT *cmdp;
+   char *s_buff;
 
    if ( !(mudconf.sideeffects & SIDE_WIPE) ) {
       notify(player, "#-1 FUNCTION DISABLED");
@@ -21257,6 +21693,19 @@ FUNCTION(fun_wipe)
       return;
    }
    do_wipe(player, cause, (SIDEEFFECT), fargs[0]);
+   if ( TogNoisy(player) ) {
+      switch( mudstate.wipe_state ) {
+         case -1: notify(player, "Wipe: no match");
+                  break;
+         case -2: notify(player, "Wipe: Can not wipe safe/indestructable objects.");
+                  break;
+         default: s_buff = alloc_lbuf("fun_wipe");
+                  sprintf(s_buff, "Wipe: %d attributes wiped.", mudstate.wipe_state);
+                  notify(player, s_buff);
+                  free_lbuf(s_buff);
+                  break;
+      }
+   }
 }
 
 FUNCTION(fun_destroy)
@@ -21778,6 +22227,91 @@ FUNCTION(fun_cluster_xget)
    free_lbuf(s_return);
 }
 
+FUNCTION(fun_cluster_flags)
+{
+   dbref thing;
+   int attrib;
+   char *s_return, *s_buff[2];
+   ATTR *a_attr;
+
+   if ( !*fargs[0] ) {
+      safe_str("#-1", buff, bufcx);
+      return;
+   }
+   
+   if ( strchr(fargs[0], '/') != NULL ) {
+      if (!parse_attrib(player, fargs[0], &thing, &attrib)) {
+         safe_str("#-1", buff, bufcx);
+         return;
+      }
+      if ( attrib == NOTHING ) {
+         return;
+      }
+   } else {
+      thing = match_thing_quiet(player, fargs[0]);
+      attrib = NOTHING;
+   }
+   if ( !Good_chk(thing) || !Cluster(thing) ) {
+      safe_str("#-1", buff, bufcx);
+      return;
+   }
+   s_buff[0] = alloc_lbuf("fun_cluster_flags");
+   s_buff[1] = NULL;
+   if ( attrib != NOTHING ) {
+      s_return = find_cluster(thing, player, attrib);
+      a_attr = atr_num(attrib);
+      sprintf(s_buff[0], "%s/%s", s_return, a_attr->name);
+      free_lbuf(s_return);
+   } else {
+      sprintf(s_buff[0], "#%d", thing);
+   }
+   fun_flags(buff, bufcx, player, cause, caller, s_buff, 1, cargs, ncargs);
+   free_lbuf(s_buff[0]);
+}
+
+FUNCTION(fun_cluster_hasflag)
+{
+   dbref thing;
+   int attrib;
+   char *s_return, *s_buff[2];
+   ATTR *a_attr;
+
+   if ( !*fargs[0] ) {
+      safe_str("#-1", buff, bufcx);
+      return;
+   }
+   
+   if ( strchr(fargs[0], '/') != NULL ) {
+      if (!parse_attrib(player, fargs[0], &thing, &attrib)) {
+         safe_str("#-1", buff, bufcx);
+         return;
+      }
+      if ( attrib == NOTHING ) {
+         safe_str("0", buff, bufcx);
+         return;
+      }
+   } else {
+      thing = match_thing_quiet(player, fargs[0]);
+      attrib = NOTHING;
+   }
+   if ( !Good_chk(thing) || !Cluster(thing) ) {
+      safe_str("#-1", buff, bufcx);
+      return;
+   }
+   s_buff[0] = alloc_lbuf("fun_cluster_hasflag");
+   s_buff[1] = fargs[1];
+   if ( attrib != NOTHING ) {
+      s_return = find_cluster(thing, player, attrib);
+      a_attr = atr_num(attrib);
+      sprintf(s_buff[0], "%s/%s", s_return, a_attr->name);
+      free_lbuf(s_return);
+   } else {
+      sprintf(s_buff[0], "#%d", thing);
+   }
+   fun_hasflag(buff, bufcx, player, cause, caller, s_buff, 2, cargs, ncargs);
+   free_lbuf(s_buff[0]);
+}
+
 FUNCTION(fun_cluster_hasattr)
 {
    dbref thing;
@@ -21785,8 +22319,8 @@ FUNCTION(fun_cluster_hasattr)
    char *s_return, *s_buff[2];
    ATTR *a_attr;
 
-    if (!fn_range_check("CLUSTER_HASATTR", nfargs, 1, 2, buff, bufcx))
-        return;
+   if (!fn_range_check("CLUSTER_HASATTR", nfargs, 1, 2, buff, bufcx))
+       return;
 
    if ( !*fargs[0] ) {
       safe_str("#-1", buff, bufcx);
@@ -21799,10 +22333,10 @@ FUNCTION(fun_cluster_hasattr)
          return;
       }
       if ( attrib == NOTHING ) {
-         safe_str("#-1", buff, bufcx);
+         safe_str("0", buff, bufcx);
          return;
       }
-      s_return = find_cluster(thing, player,attrib);
+      s_return = find_cluster(thing, player, attrib);
       a_attr = atr_num(attrib);
       s_buff[0] = alloc_lbuf("fun_cluster_hasattr");
       s_buff[1] = NULL;
@@ -22094,9 +22628,12 @@ FUNCTION(fun_cluster_set)
    if ( (nfargs < 2) || !*fargs[1] || (thing < 0))
       return;
 
-   s_instrptr = s_instr = alloc_lbuf("fun_cluster_set");
-   strcpy(s_instr, fargs[1]);
-
+   /* s_instrptr = s_instr = alloc_lbuf("fun_cluster_set"); */
+   s_buf1 = exec(player, cause, caller, EV_STRIP | EV_FCHECK | EV_EVAL,
+                 fargs[1], cargs, ncargs);
+   s_instr = alloc_lbuf("do_cluster_set_s_instr");
+   strcpy(s_instr, s_buf1);
+   s_instrptr = s_instr;
    if ( (attrib == NOTHING) && (strchr(s_instr, ':') != NULL) ) {
       i_flag = 0;
       while ( *s_instrptr && (*s_instrptr != ':') ) {
@@ -22108,6 +22645,7 @@ FUNCTION(fun_cluster_set)
          attrib = a_clust->number;
    } 
    free_lbuf(s_instr);
+
    if ( i_flag ) {
       if ( Good_chk(thing) && Cluster(thing) ) {
          a_clust = atr_str("_CLUSTER");
@@ -22115,8 +22653,6 @@ FUNCTION(fun_cluster_set)
             safe_str("#-1 NO SUCH CLUSTER", buff, bufcx);
          } else {
             s_return = atr_get(thing, a_clust->number, &aowner, &aflags);
-            s_buf1 = exec(player, cause, caller, EV_STRIP | EV_FCHECK | EV_EVAL,
-                          fargs[1], cargs, ncargs);
             s_instr = alloc_lbuf("cluster_set_flags");
             s_strtok = strtok_r(s_return, " ", &s_strtokptr);
             s_instrptr = alloc_lbuf("cluster_set_buf1");
@@ -22135,7 +22671,6 @@ FUNCTION(fun_cluster_set)
             free_lbuf(s_return);
             free_lbuf(s_instr);
             free_lbuf(s_instrptr);
-            free_lbuf(s_buf1);
          }
       } else {
          safe_str("#-1 NO SUCH CLUSTER", buff, bufcx);
@@ -22154,8 +22689,6 @@ FUNCTION(fun_cluster_set)
                free_lbuf(s_instr);
             } 
          }
-         s_buf1 = exec(player, cause, caller, EV_STRIP | EV_FCHECK | EV_EVAL,
-                       fargs[1], cargs, ncargs);
          if ( Cluster(player) && Cluster(thing) && (Owner(player) == Owner(thing)) ) {
             thing = match_thing(player, s_return);
             if ( !Good_chk(thing) || !Cluster(thing) )
@@ -22165,13 +22698,13 @@ FUNCTION(fun_cluster_set)
          } else {
             do_set(player, cause, (SET_QUIET|SIDEEFFECT), s_return, s_buf1);
          }
-         free_lbuf(s_buf1);
          if ( !i_flag2 ) {
             trigger_cluster_action(thing, player);
          }
       }
       free_lbuf(s_return);
    }
+   free_lbuf(s_buf1);
 }
 
 #define CLUSTER_CHECK			0
@@ -22179,6 +22712,8 @@ FUNCTION(fun_cluster_set)
 #define CLUSTER_STAT_ACTION		2
 #define CLUSTER_STAT_THRESH		3
 #define CLUSTER_STAT_FIND		4
+#define CLUSTER_STAT_FUNCTION		5
+#define CLUSTER_STAT_TIMEOUTS		6
 FUNCTION(fun_cluster_stats)
 {
    int i_type, aflags;
@@ -22192,7 +22727,7 @@ FUNCTION(fun_cluster_stats)
    if ( *fargs[1] )
       i_type = atoi(fargs[1]);
 
-   if ( (i_type > 4) || (i_type < 0) )
+   if ( (i_type > 6) || (i_type < 0) )
       i_type = CLUSTER_CHECK;
 
    if ( !*fargs[0] ) {
@@ -22214,6 +22749,13 @@ FUNCTION(fun_cluster_stats)
       case CLUSTER_CHECK: 
            ival(buff, bufcx, ((Good_chk(thing) && Cluster(thing)) ? 1 : 0));
            break;
+      case CLUSTER_STAT_TIMEOUTS:
+           s_return = alloc_lbuf("cluster_stat_timeout");
+           sprintf(s_return, "Action: %d |ActionFunction: %d", 
+                   mudconf.cluster_cap, mudconf.clusterfunc_cap);
+           safe_str(s_return, buff, bufcx);
+           free_lbuf(s_return);
+           break;
       case CLUSTER_STAT_LIST:
            attr = atr_str("_CLUSTER");
            if ( attr ) {
@@ -22224,6 +22766,14 @@ FUNCTION(fun_cluster_stats)
            break;
       case CLUSTER_STAT_ACTION:
            attr = atr_str("_CLUSTER_ACTION");
+           if ( attr ) {
+              s_return = atr_get(thing, attr->number, &aowner, &aflags);
+              safe_str(s_return, buff, bufcx);
+              free_lbuf(s_return);
+           }
+           break;
+      case CLUSTER_STAT_FUNCTION:
+           attr = atr_str("_CLUSTER_ACTION_FUNC");
            if ( attr ) {
               s_return = atr_get(thing, attr->number, &aowner, &aflags);
               safe_str(s_return, buff, bufcx);
@@ -22314,20 +22864,24 @@ FUN flist[] =
 #ifdef REALITY_LEVELS
     {"CHKREALITY", fun_chkreality, 2, 0, CA_PUBLIC, CA_NO_CODE},
 #endif /* REALITY_LEVELS */
+    {"CHKTRACE", fun_chktrace, 1, 0, CA_PUBLIC, CA_NO_CODE},
     {"CHOMP", fun_chomp, 0, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"CHR", fun_chr, 1, 0, CA_PUBLIC, CA_NO_CODE},
     {"CITER", fun_citer, 0, FN_VARARGS | FN_NO_EVAL, CA_PUBLIC, CA_NO_CODE},
     {"CLOAK", fun_cloak, 2, 0, CA_WIZARD, 0},
 #ifdef USE_SIDEEFFECT
     {"CLONE", fun_clone, 1, FN_VARARGS, CA_PUBLIC, 0},
+    {"CLUSTER_ADD", fun_cluster_add, 2, 0, CA_PUBLIC, CA_NO_CODE},
 #endif
     {"CLUSTER_ATTRCNT", fun_cluster_attrcnt, 1, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"CLUSTER_DEFAULT", fun_cluster_default, 2, FN_NO_EVAL, CA_PUBLIC, CA_NO_CODE},
     {"CLUSTER_EDEFAULT", fun_cluster_edefault, 2, FN_NO_EVAL, CA_PUBLIC, CA_NO_CODE},
+    {"CLUSTER_FLAGS", fun_cluster_flags, 1, 0, CA_PUBLIC, CA_NO_CODE},
     {"CLUSTER_GET", fun_cluster_get, 1, 0, CA_PUBLIC, CA_NO_CODE},
     {"CLUSTER_GET_EVAL", fun_cluster_get_eval, 1, 0, CA_PUBLIC, CA_NO_CODE},
     {"CLUSTER_GREP", fun_cluster_grep, 3, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"CLUSTER_HASATTR", fun_cluster_hasattr, 1, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
+    {"CLUSTER_HASFLAG", fun_cluster_hasflag, 2, 0, CA_PUBLIC, CA_NO_CODE},
     {"CLUSTER_LATTR", fun_cluster_lattr, 1, FN_VARARGS, CA_PUBLIC, 0},
 #ifdef USE_SIDEEFFECT
     {"CLUSTER_SET", fun_cluster_set, 2, FN_NO_EVAL, CA_PUBLIC, CA_NO_CODE},
@@ -22354,6 +22908,7 @@ FUN flist[] =
 #endif
     {"CLUSTER_UEVAL", fun_cluster_ueval, 0, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"CLUSTER_VATTRCNT", fun_cluster_vattrcnt, 1, 0, CA_PUBLIC, CA_NO_CODE},
+    {"CLUSTER_WIPE", fun_cluster_wipe, 1, FN_NO_EVAL, CA_PUBLIC, CA_NO_CODE},
     {"CLUSTER_XGET", fun_cluster_xget, 2, 0, CA_PUBLIC, CA_NO_CODE},
     {"CMDS", fun_cmds, 1, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"COLUMNS", fun_columns, 3, FN_VARARGS, CA_PUBLIC, 0},
@@ -22522,6 +23077,7 @@ FUN flist[] =
     {"LISTINTER", fun_listinter, 2, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"LISTMATCH", fun_listmatch, 0, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"LISTNEWSGROUPS", fun_listnewsgroups, 0, 1, CA_PUBLIC, CA_NO_CODE},
+    {"LISTPROTECTION", fun_listprotection, 0, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
 #ifdef REALITY_LEVELS
     {"LISTRLEVELS", fun_listrlevels, 0, 0, CA_PUBLIC, CA_NO_CODE},
 #endif /* REALITY_LEVELS */
@@ -22656,6 +23212,7 @@ FUN flist[] =
     {"POWER", fun_power, 2, 0, CA_PUBLIC, CA_NO_CODE},
     {"POWER10", fun_power10, 1, 0, CA_PUBLIC, CA_NO_CODE},
     {"PRINTF", fun_printf, 2, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
+    {"PRIVATIZE", fun_privatize, 1, 0, CA_PUBLIC, CA_NO_CODE},
     {"PROGRAMMER", fun_programmer, 1, 0, CA_PUBLIC, CA_NO_CODE},
     {"PTIMEFMT", fun_ptimefmt, 0, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"PUSHREGS", fun_pushregs, 1, 0, CA_PUBLIC, CA_NO_CODE},
@@ -22713,7 +23270,7 @@ FUN flist[] =
     {"SECS", fun_secs, 0, 0, CA_PUBLIC, CA_NO_CODE},
     {"SECURE", fun_secure, -1, 0, CA_PUBLIC, CA_NO_CODE},
     {"SECUREX", fun_secure, 0, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
-    {"SEES", fun_sees, 2, 0, CA_PUBLIC, CA_NO_CODE},
+    {"SEES", fun_sees, 2, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
 #ifdef USE_SIDEEFFECT
     {"SET", fun_set, 2, FN_NO_EVAL, CA_PUBLIC, 0},
 #endif
@@ -22856,6 +23413,7 @@ FUN flist[] =
     {"WORDS", fun_words, 0, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"WRAP", fun_wrap, 2, FN_VARARGS, CA_PUBLIC, 0},
     {"WRAPCOLUMNS", fun_wrapcolumns, 3, FN_VARARGS, CA_PUBLIC, 0},
+    {"WRITABLE", fun_writable, 2, 0, CA_PUBLIC, CA_NO_CODE},
     {"XCON", fun_xcon, 3, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"XGET", fun_xget, 2, 0, CA_PUBLIC, CA_NO_CODE},
 #ifdef MUX_INCDEC
@@ -22938,7 +23496,7 @@ do_function(dbref player, dbref cause, int key, char *fname, char *target)
     dbref obj, aowner;
 
     /* Make a local uppercase copy of the function name */
-    if ( (key & (FN_LIST|FN_DEL)) && (key & FN_PRES) ) {
+    if ( (key & (FN_LIST|FN_DEL)) && (key & (FN_PRES|FN_PROTECT)) ) {
        notify(player, "Illegal combination of switches.");
        return;
     }
@@ -22969,12 +23527,13 @@ do_function(dbref player, dbref cause, int key, char *fname, char *target)
                                          "Function Name: %s\n"\
                                          "Target Object: #%d\n"\
                                          "Attribute Name: %s\n"\
-                                         "Permissions:%s%s",
+                                         "Permissions:%s%s%s",
                                          ufp->name, 
                                          ufp->obj, 
                                          ((ap != NULL) ? ap->name : "(DELETED)"),
                                          ((ufp->flags & FN_PRIV) ? " WIZARD " : " "),
-                                         ((ufp->flags & FN_PRES) ? "PRESERVED" : " ")) );
+                                         ((ufp->flags & FN_PRES) ? "PRESERVED " : " "),
+                                         ((ufp->flags & FN_PROTECT) ? "PROTECTED" : " ")) );
              listset_nametab(player, access_nametab, access_nametab2, ufp->perms, ufp->perms2, "Flags:", 1);
              tprp_buff = tpr_buff;
              atext = NULL;
@@ -23006,7 +23565,7 @@ do_function(dbref player, dbref cause, int key, char *fname, char *target)
        tprp_buff = tpr_buff;
        notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%28s   %8s  %30s %4s",
               "----------------------------", "--------",
-              "------------------------------", " -- "));
+              "------------------------------", " ---"));
        i_tcount = count = 0;
        for (ufp2 = ufun_head; ufp2; ufp2 = ufp2->next) {
           ap = atr_num(ufp2->atr);
@@ -23018,13 +23577,13 @@ do_function(dbref player, dbref cause, int key, char *fname, char *target)
              }
              tprp_buff = tpr_buff;
              if (!(ufp2->flags & FN_PRIV) || Wizard(player)) {
-                notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%-28.28s   #%-7d  %-30.30s  %c%c",
+                notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%-28.28s   #%-7d  %-30.30s  %c%c%c",
                        ufp2->name, ufp2->obj, ap->name, ((ufp2->flags & FN_PRIV) ? 'W' : '-'),
-                       ((ufp2->flags & FN_PRES) ? 'p' : '-')));
+                       ((ufp2->flags & FN_PRES) ? 'p' : '-'), ((ufp2->flags & FN_PROTECT) ? '+' : '-')));
              } else {
                 notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%-28.28s   #%-7d  %-30.30s  %c%c",
                        ufp2->name, ufp2->obj, "(INVALID ATTRIBUTE)", ((ufp2->flags & FN_PRIV) ? 'W' : '-'),
-                       ((ufp2->flags & FN_PRES) ? 'p' : '-')));
+                       ((ufp2->flags & FN_PRES) ? 'p' : '-'), ((ufp2->flags & FN_PROTECT) ? '+' : '-')));
              }
              count++;
           }
@@ -23032,7 +23591,7 @@ do_function(dbref player, dbref cause, int key, char *fname, char *target)
        tprp_buff = tpr_buff;
        notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%28s   %8s  %30s %4s",
               "----------------------------", "--------",
-              "------------------------------", " -- "));
+              "------------------------------", " ---"));
        tprp_buff = tpr_buff;
        if ( i_tcount != count )
           notify(player, safe_tprintf(tpr_buff, &tprp_buff, "Total User-Defined Functions: %d [%d matched]", i_tcount, count));

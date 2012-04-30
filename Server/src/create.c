@@ -1103,7 +1103,7 @@ destroy_player(dbref player, dbref victim, int purge)
 {
     dbref aowner;
     int count, aflags;
-    char *buf, *logbuf;
+    char *buf, *logbuf, *s_strtok, *s_strtokr;
 
     if (!Admin(player)) {
 	notify_quiet(player, "Sorry, no suicide allowed.");
@@ -1148,6 +1148,17 @@ destroy_player(dbref player, dbref victim, int purge)
     delete_player_name(victim, buf);
     atr_clr(victim, A_ALIAS);
     free_lbuf(buf);
+
+    if ( H_Protect(victim) ) {
+       buf = atr_pget(victim, A_PROTECTNAME, &aowner, &aflags);
+       s_strtok = strtok_r(buf, "\t", &s_strtokr);
+       while ( s_strtok ) {
+          (void) protectname_remove(s_strtok, GOD);
+          s_strtok = strtok_r(NULL, "\t", &s_strtokr);
+       }
+       free_lbuf(buf);
+       atr_clr(victim, A_PROTECTNAME);
+    }
 
     move_via_generic(victim, NOTHING, player, 0);
     destroy_obj(player, victim, purge);

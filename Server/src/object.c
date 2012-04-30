@@ -315,7 +315,7 @@ create_obj(dbref player, int objtype, char *name, int cost)
 	    tname = "a player";
 	}
 	buff = munge_space(strip_all_special(name));
-	okname = (*buff && badname_check(buff, player));
+	okname = (*buff && badname_check(buff, player) && (protectname_check(buff, player, 1) > 0) );
 	if (okname)
 	    okname = ok_player_name(buff);
 	if (okname)

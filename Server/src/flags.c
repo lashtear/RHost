@@ -895,6 +895,7 @@ FLAGENT gen_flags[] =
   {"SHOWFAILCMD", SHOWFAILCMD, 'f', FLAG4, 0, 0, 0, fh_any},
   {"SPAMMONITOR", SPAMMONITOR, 'w', FLAG4, CA_IMMORTAL, 0, 0, fh_immortal_bit},
   {"ZONEPARENT", ZONEPARENT, 'y', FLAG4, 0, 0, 0, fh_any},
+  {"HAS_PROTECT", HAS_PROTECT, '+', FLAG4, CA_GOD | CA_NO_DECOMP, 0, 0, fh_god},
   {"", 0, ' ', 0, 0, 0, 0, NULL}
 };
 
@@ -1171,12 +1172,12 @@ void
 flag_set(dbref target, dbref player, char *flag, int key)
 {
     FLAGENT *fp;
-    int negate, result, perm, i_ovperm, i_uovperm;
+    int negate, result, perm, i_ovperm, i_uovperm, i_chkflags;
     char *pt1, *pt2, st, *tbuff, *tpr_buff, *tprp_buff, *tpr_buff2, *tprp_buff2;
 
     /* Trim spaces, and handle the negation character */
 
-    result = 0;
+    result = i_chkflags = 0;
     pt1 = flag;
     st = 1;
     tbuff = alloc_lbuf("log_flag_set_information");
@@ -1320,6 +1321,20 @@ flag_set(dbref target, dbref player, char *flag, int key)
 		/* Invoke the flag handler, and print feedback */
 
 		  if (perm) {
+                    switch (fp->flagflag) {
+                       case FLAG2:
+                          i_chkflags = ((Flags2(target) & fp->flagvalue) ? 1 : 0);
+                          break;
+                       case FLAG3:
+                          i_chkflags = ((Flags3(target) & fp->flagvalue) ? 1 : 0);
+                          break;
+                       case FLAG4:
+                          i_chkflags = ((Flags4(target) & fp->flagvalue) ? 1 : 0);
+                          break;
+                       default:
+                          i_chkflags = ((Flags(target) & fp->flagvalue) ? 1 : 0);
+                          break;
+                    }
                     i_ovperm = (fp->setovperm &~ CA_LOGFLAG);
                     i_uovperm = (fp->usetovperm &~ CA_LOGFLAG);
                     if (((i_ovperm > 0) && !negate) || 
@@ -1361,12 +1376,13 @@ flag_set(dbref target, dbref player, char *flag, int key)
                         tprp_buff = tpr_buff;
                         tprp_buff2 = tpr_buff2;
 		        notify( player, (negate ? safe_tprintf(tpr_buff, &tprp_buff, 
-                                                 "Set - %s (cleared flag %s).", 
-                                                 Name(target), 
+                                                 "Set - %s (cleared flag%s%s).", 
+                                                 Name(target), (i_chkflags ? " " : " [again] "),
                                                  fp->flagname) : safe_tprintf(tpr_buff2, 
                                                            &tprp_buff2, 
-                                                           "Set - %s (set flag %s).", 
-                                                           Name(target), fp->flagname)) );
+                                                           "Set - %s (set flag%s%s).", 
+                                                           Name(target), (i_chkflags ? " [again] " : " "),
+                                                           fp->flagname)) );
 		      } else
 		        notify(player, (negate ? "Cleared." : "Set."));
 		    }
@@ -3444,6 +3460,18 @@ void do_flagdef(dbref player, dbref cause, int key, char *flag1, char *flag2)
                   ((fp->flagvalue & IMMORTAL) &&
                    (fp->flagflag == 0)) ) {
          notify_quiet(player, "Sorry, you can not modify that flag.");
+         return;
+      }
+      if ( key & FLAGDEF_CHAR ) {
+         if ( (strlen(flag2) != 1) || !*flag2 || isspace(*flag2) || !isprint(*flag2)) {
+            notify_quiet(player, "Flag letter must be a single character.");
+         } else {
+            tprp_buff = tpr_buff = alloc_lbuf("do_flagdef");
+            notify_quiet(player, safe_tprintf(tpr_buff, &tprp_buff, "Modified 'flagletter' for flag %s.  Old letter '%c', new letter '%c'",
+                                           fp->flagname, fp->flaglett, *flag2));
+            fp->flaglett = *flag2;
+            free_lbuf(tpr_buff);
+         }
          return;
       }
       tmp_ptr = strtok(flag2, " \t");

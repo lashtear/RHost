@@ -291,6 +291,7 @@ extern int FDECL(ansiname_ck, (int, dbref, dbref, int, char *));
 
 extern void FDECL(pcache_reload, (dbref));
 extern void FDECL(desc_reload, (dbref));
+extern void FDECL(do_reboot, (dbref, dbref, int));
 
 AFLAGENT attrflag[] =
 {
@@ -422,7 +423,7 @@ ATTR attr[] =
      NULL},
     {"Kill", A_KILL, AF_ODARK, NULL},
     {"Lalias", A_LALIAS, AF_ODARK | AF_NOPROG, NULL},
-    {"lambda_internal_foo", A_LAMBDA, AF_PINVIS | AF_NOPROG | AF_GOD | AF_NOCMD, NULL},
+    {"lambda_internal_foo", A_LAMBDA, AF_PINVIS | AF_NOPROG | AF_GOD | AF_NOCMD | AF_PRIVATE, NULL},
     {"Last", A_LAST, AF_WIZARD | AF_NOCMD | AF_NOPROG, NULL},
     {"LastCreate", A_LASTCREATE, AF_DARK | AF_INTERNAL | AF_NOPROG | AF_NOCMD, NULL},
     {"LastIP", A_LASTIP, AF_MDARK | AF_NOPROG | AF_NOCMD | AF_GOD, NULL},
@@ -486,6 +487,7 @@ ATTR attr[] =
     {"ProgBuffer", A_PROGBUFFER, AF_DARK | AF_NOPROG | AF_INTERNAL | AF_NOCMD, NULL},
     {"ProgPrompt", A_PROGPROMPT, AF_ODARK | AF_NOPROG | AF_NOANSI | AF_NORETURN, NULL},
     {"ProgPromptBuffer", A_PROGPROMPTBUF, AF_DARK | AF_NOPROG | AF_INTERNAL | AF_NOCMD, NULL},
+    {"ProtectName", A_PROTECTNAME, AF_DARK | AF_MDARK | AF_INTERNAL | AF_GOD | AF_NOCMD, NULL},
     {"QueueMax", A_QUEUEMAX, AF_MDARK | AF_WIZARD | AF_NOPROG, NULL},
     {"Quota", A_QUOTA, AF_DARK | AF_NOPROG | AF_WIZARD | AF_NOCMD, NULL},
     {"Race", A_RACE, AF_NOPROG | AF_BUILDER, NULL},
@@ -1096,7 +1098,13 @@ do_attribute(dbref player, dbref cause, int key, char *aname, char *value)
 	   vattr_delete(buff);
 	   notify(player, "Attribute deleted.");
         } else {
-           notify(player, unsafe_tprintf("Attribute %s in use by %d dbref#'s.  Unable to delete.", va->name, delcnt));
+           if ( va->number < 255 ) {
+              notify(player, unsafe_tprintf("Attribute %s in use by %d dbref#'s, but is listed internal.  Deleting.", va->name, delcnt));
+	      vattr_delete(buff);
+	      notify(player, "Attribute deleted.");
+           } else {
+              notify(player, unsafe_tprintf("Attribute %s in use by %d dbref#'s.  Unable to delete.", va->name, delcnt));
+           }
         }
 	break;
     }
@@ -1120,7 +1128,10 @@ do_attribute(dbref player, dbref cause, int key, char *aname, char *value)
 void 
 do_fixdb(dbref player, dbref cause, int key, char *arg1, char *arg2)
 {
-    dbref thing, res;
+    dbref thing, res, aowner;
+    char *s;
+    char *s_types[]={ "room", "thing", "exit", "player", "zone", "garbage", "unknown type 1", "unknown type 2", NULL };
+    int aflags, i_type;
 
     init_match(player, arg1, NOTYPE);
     match_everything(0);
@@ -1145,6 +1156,39 @@ do_fixdb(dbref player, dbref cause, int key, char *arg1, char *arg2)
     }
 
     switch (key) {
+    case FIXDB_TYPE:
+        i_type = atoi(arg2);
+        if ( (i_type < 0) || (i_type > TYPE_MASK) ) {
+           notify(player, "Unrecognized type definition specified.");
+           break;
+        }
+        if ( (i_type == TYPE_PLAYER) || (Typeof(thing) == TYPE_PLAYER) ) {
+	   s = atr_get(thing, A_PASS, &aowner, &aflags);
+           if ( !s || !*s ) {
+              notify(player, "You can not change a player into a non-player.");
+              free_lbuf(s);
+              break;
+           } else if ( i_type != TYPE_PLAYER ) {
+              notify(player, "You can not change a non-player into a player.");
+              free_lbuf(s);
+              break;
+           }
+           s_Flags(thing, (Flags(thing) & ~TYPE_MASK) | TYPE_PLAYER);
+           notify(player, unsafe_tprintf("Converted #%d from type %s [id-type %d] to %s [id-type %d]", 
+                  thing, s_types[Flags(thing) & TYPE_MASK], Flags(thing) & TYPE_MASK, 
+                  s_types[i_type], i_type));
+           free_lbuf(s);
+        } else {
+           if ( i_type <= 5 ) {
+              notify(player, unsafe_tprintf("Converted #%d from type %s [id-type %d] to %s [id-type %d]", 
+                     thing, s_types[Flags(thing) & TYPE_MASK], Flags(thing) & TYPE_MASK, 
+                     s_types[i_type], i_type));
+           s_Flags(thing, (Flags(thing) & ~TYPE_MASK) | i_type);
+           } else {
+              notify(player, "Invalid type specified.  Can not convert.");
+           }
+        }
+        break;
     case FIXDB_OWNER:
 	s_Owner(thing, res);
 	if (!Quiet(player))
@@ -1671,16 +1715,28 @@ void
 al_extend(char **buffer, int *bufsiz, int len, int copy)
 {
     char *tbuff;
+    int  i_newsize;
 
     if (len > *bufsiz) {
-	*bufsiz = len + ATR_BUF_CHUNK;
-	tbuff = XMALLOC(*bufsiz, "al_extend");
+	i_newsize = len + ATR_BUF_CHUNK;
+	tbuff = XMALLOC(i_newsize, "al_extend");
+        if ( !tbuff ) {
+	   STARTLOG(LOG_ALWAYS, "MEMORY", "ALLOCATION")
+	      log_text("al_extend: Unable to allocate chunk memory for new attribute.  Rebooting...");
+           ENDLOG
+#ifndef STANDALONE
+           raw_broadcast(0, 0, "Game: Memory allocation error.  Attempting reboot...");
+           do_reboot(GOD, GOD, 0);
+#endif
+        }
 	if (*buffer) {
 	    if (copy)
-		bcopy(*buffer, tbuff, *bufsiz);
+               memcpy(tbuff, *buffer, *bufsiz);
+/*		bcopy(*buffer, tbuff, *bufsiz); */
 	    XFREE(*buffer, "al_extend");
 	}
 	*buffer = tbuff;
+        *bufsiz = i_newsize;
     }
 }
 
@@ -1730,7 +1786,8 @@ al_fetch(dbref thing)
     if (astr) {
 	len = al_size(astr);
 	al_extend(&mudstate.mod_alist, &mudstate.mod_size, len, 0);
-	bcopy((char *) astr, (char *) mudstate.mod_alist, len);
+        memcpy((char *) mudstate.mod_alist, (char *) astr, len);
+/*	bcopy((char *) astr, (char *) mudstate.mod_alist, len); */
     } else {
 	al_extend(&mudstate.mod_alist, &mudstate.mod_size, 1, 0);
 	*mudstate.mod_alist = '\0';
@@ -2177,6 +2234,9 @@ atr_clr(dbref thing, int atr)
     case A_STARTUP:
 	s_Flags(thing, Flags(thing) & ~HAS_STARTUP);
 	break;
+    case A_PROTECTNAME:
+	s_Flags4(thing, Flags(thing) & ~HAS_PROTECT);
+	break;
     case A_FORWARDLIST:
 	s_Flags2(thing, Flags2(thing) & ~HAS_FWDLIST);
 #ifndef STANDALONE
@@ -2223,6 +2283,9 @@ atr_add_raw(dbref thing, int atr, char *buff)
     switch (atr) {
     case A_STARTUP:
 	s_Flags(thing, Flags(thing) | HAS_STARTUP);
+	break;
+    case A_PROTECTNAME:
+	s_Flags4(thing, Flags(thing) | HAS_PROTECT);
 	break;
     case A_FORWARDLIST:
 	s_Flags2(thing, Flags2(thing) | HAS_FWDLIST);
@@ -2708,7 +2771,8 @@ atr_head(dbref thing, char **attrp)
 
     al_extend(&mudstate.iter_alist.data, &mudstate.iter_alist.len,
 	      alen, 0);
-    bcopy((char *) astr, (char *) mudstate.iter_alist.data, alen);
+    memcpy((char *) mudstate.iter_alist.data, (char *) astr, alen);
+/*  bcopy((char *) astr, (char *) mudstate.iter_alist.data, alen); */
     *attrp = mudstate.iter_alist.data;
     return atr_next(attrp);
 }
@@ -2732,78 +2796,78 @@ void val_count()
 
 int atrcint(dbref player, dbref thing, int key)
 {
-  char *cp, *newatr, *s_tprintf, *s_tprintfptr;
-  int anum, aflags, count;
-  dbref aowner;
-  ATTR *attr, *attr2;
+   char *cp, *newatr, *s_tprintf, *s_tprintfptr;
+   int anum, aflags, count;
+   dbref aowner;
+   ATTR *attr, *attr2;
 
-  count = 0;
-  s_tprintfptr = s_tprintf = alloc_lbuf("atrcint");
-  for (anum = atr_head(thing, &cp); anum; anum = atr_next(&cp)) {
-    if (atr_get_info(thing, anum, &aowner, &aflags)) {
-      attr = atr_num(anum);
-      if (!attr) { /* if we get here, something is wrong */
-	STARTLOG(LOG_ALWAYS, "OBJECT", "DAMAGE")
-          s_tprintfptr = s_tprintf;
-	  log_text((char *)safe_tprintf(s_tprintf, &s_tprintfptr, "Object damaged: %d, Attribute number: %d\n"
-		,thing,anum));
-	  log_text("Attr pointer is NULL\n");
-          s_tprintfptr = s_tprintf;
-	  if (attr && attr->name)
-	    log_text((char *)safe_tprintf(s_tprintf, &s_tprintfptr, "Attribute Name is: %s\n",attr->name));
-        if ( key == 1 ) {
-           newatr = alloc_sbuf("atrcint");
+   count = 0;
+   s_tprintfptr = s_tprintf = alloc_lbuf("atrcint");
+   for (anum = atr_head(thing, &cp); anum; anum = atr_next(&cp)) {
+      if (atr_get_info(thing, anum, &aowner, &aflags)) {
+         attr = atr_num(anum);
+         if (!attr) { /* if we get here, something is wrong */
+            STARTLOG(LOG_ALWAYS, "OBJECT", "DAMAGE")
+               s_tprintfptr = s_tprintf;
+               log_text((char *)safe_tprintf(s_tprintf, &s_tprintfptr, "Object damaged: %d, Attribute number: %d\n"
+                        ,thing,anum));
+               log_text("Attr pointer is NULL\n");
+               s_tprintfptr = s_tprintf;
+               if (attr && attr->name)
+                  log_text((char *)safe_tprintf(s_tprintf, &s_tprintfptr, "Attribute Name is: %s\n",attr->name));
+               if ( (key == 1) && (anum > 255) ) {
+                  newatr = alloc_sbuf("atrcint");
 #ifndef STANDALONE
-           sprintf(newatr, "XYZZY_%d_%d", (int)(mudstate.now), anum);
+                  sprintf(newatr, "XYZZY_%d_%d", (int)(mudstate.now), anum);
 #else
-           sprintf(newatr, "XYZZY_%d", anum);
+                  sprintf(newatr, "XYZZY_%d", anum);
 #endif
-           attr2 = atr_str(newatr);
-           if ( !attr2 ) {
-              vattr_define(newatr, anum, AF_PRIVATE);
-              log_text("Attr pointer redefined to ");
-              log_text(newatr);
+                  attr2 = atr_str(newatr);
+                  if ( !attr2 ) {
+                     vattr_define(newatr, anum, AF_PRIVATE);
+                     log_text("Attr pointer redefined to ");
+                     log_text(newatr);
 #ifndef STANDALONE
-              s_tprintfptr = s_tprintf;
-              notify(player, safe_tprintf(s_tprintf, &s_tprintfptr, "Attribute %d recovered.  Renamed to %s", anum, newatr));
+                     s_tprintfptr = s_tprintf;
+                     notify(player, safe_tprintf(s_tprintf, &s_tprintfptr, "Attribute %d recovered.  Renamed to %s", anum, newatr));
 #endif
-           } else {
+                  } else {
 #ifndef STANDALONE
-              s_tprintfptr = s_tprintf;
-              notify(player, safe_tprintf(s_tprintf, &s_tprintfptr, "Attribute %d unable to be renamed.  Cleared.", anum, newatr));
+                     s_tprintfptr = s_tprintf;
+                     notify(player, safe_tprintf(s_tprintf, &s_tprintfptr, "Attribute %d unable to be renamed.  Cleared.", anum, newatr));
 #endif
-	      log_text("Attribute can not be recovered and was removed from attribute list");
-	      atr_clr(thing,anum);
-           }
-           free_sbuf(newatr);
-        } else if ( key == 0 ) {
-	   atr_clr(thing,anum);
-	   log_text("Attribute removed from attribute list");
+                     log_text("Attribute can not be recovered and was removed from attribute list");
+                     atr_clr(thing,anum);
+                 }
+                 free_sbuf(newatr);
+              } else if ( key == 0 ) {
+                 atr_clr(thing,anum);
+                 log_text("Attribute removed from attribute list");
+              } else if ( key == 3 ) {
+                 atr_clr(thing,anum);
+                 log_text("Attribute removed from attribute list");
+              } else if ( key == 2 ) {
+                 log_text("Attribute was NOT removed.");
+              }
+           ENDLOG
+           free_lbuf(s_tprintf);
+           return -1;
         } else if ( key == 3 ) {
-           atr_clr(thing,anum);
-           log_text("Attribute removed from attribute list");
-        } else if ( key == 2 ) {
-           log_text("Attribute was NOT removed.");
-        }
-	ENDLOG
-        free_lbuf(s_tprintf);
-	return -1;
-      } else if ( key == 3 ) {
-         if ( aflags & AF_IS_LOCK ) {
-            atr_set_flags(thing, anum, (aflags & ~AF_IS_LOCK));
+           if ( aflags & AF_IS_LOCK ) {
+              atr_set_flags(thing, anum, (aflags & ~AF_IS_LOCK));
 #ifndef STANDALONE
-            s_tprintfptr = s_tprintf;
-            notify(player, safe_tprintf(s_tprintf, &s_tprintfptr, "Attribute %s cleared of ISLOCK", attr->name));
+              s_tprintfptr = s_tprintf;
+              notify(player, safe_tprintf(s_tprintf, &s_tprintfptr, "Attribute %s cleared of ISLOCK", attr->name));
 #endif
-         }
-
-      }
-      if (Read_attr(player, thing, attr, aowner, aflags, 0))
-	count++;
-    }
-  }
-  free_lbuf(s_tprintf);
-  return count;
+           }
+        }
+        if (Read_attr(player, thing, attr, aowner, aflags, 0)) {
+           count++;
+        }
+     }
+   }
+   free_lbuf(s_tprintf);
+   return count;
 }
 
 /* ---------------------------------------------------------------------------
@@ -2902,8 +2966,9 @@ db_grow(dbref newtop)
 	    /* An old name cache exists.  Copy it. */
 
 	    names -= SIZE_HACK;
-	    bcopy((char *) names, (char *) newnames,
-		  (newtop + SIZE_HACK) * sizeof(NAME));
+/*	    bcopy((char *) names, (char *) newnames,
+		  (newtop + SIZE_HACK) * sizeof(NAME)); */
+            memcpy((char *) newnames, (char *) names, (newtop + SIZE_HACK) * sizeof(NAME));
 	    cp = (char *) names;
 	    XFREE(cp, "db_grow.name");
 	} else {
@@ -2936,8 +3001,9 @@ db_grow(dbref newtop)
 	/* An old struct database exists.  Copy it to the new buffer */
 
 	db -= SIZE_HACK;
-	bcopy((char *) db, (char *) newdb,
-	      (mudstate.db_top + SIZE_HACK) * sizeof(OBJ));
+/*	bcopy((char *) db, (char *) newdb,
+	      (mudstate.db_top + SIZE_HACK) * sizeof(OBJ)); */
+        memcpy((char *) newdb, (char *) db, (mudstate.db_top + SIZE_HACK) * sizeof(OBJ));
 	cp = (char *) db;
 	XFREE(cp, "db_grow.db");
     } else {
@@ -3012,7 +3078,8 @@ db_grow(dbref newtop)
     bzero((char *) newmarkbuf, marksize);
     if (mudstate.markbits) {
 	marksize = (newtop + 7) >> 3;
-	bcopy((char *) mudstate.markbits, (char *) newmarkbuf, marksize);
+/*	bcopy((char *) mudstate.markbits, (char *) newmarkbuf, marksize); */
+        memcpy((char *) newmarkbuf, (char *) mudstate.markbits, marksize);
 	cp = (char *) mudstate.markbits;
 	XFREE(cp, "db_grow");
     }
@@ -3271,7 +3338,8 @@ dup_bool(BOOLEXP * b)
 void 
 clone_object(dbref a, dbref b)
 {
-    bcopy((char *) &db[b], (char *) &db[a], sizeof(struct object));
+/*    bcopy((char *) &db[b], (char *) &db[a], sizeof(struct object)); */
+   memcpy((char *) &db[a], (char *) &db[b], sizeof(struct object)); 
 }
 
 int 

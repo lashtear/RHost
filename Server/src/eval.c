@@ -1909,6 +1909,9 @@ exec(dbref player, dbref cause, dbref caller, int eval, char *dstr,
                           savereg[z] = alloc_lbuf("ulocal_reg");
                           ptsavereg = savereg[z];
                           safe_str(mudstate.global_regs[z],savereg[z],&ptsavereg);
+                          if ( ufp->flags & FN_PROTECT ) {
+                             *mudstate.global_regs[z] = '\0';
+                          }
                        }
                     }
 		    mudstate.allowbypass = 1;

@@ -83,6 +83,6 @@ gdbmclean:
 gdbmrclean:
 	@(cd $(gdbmdir) ; make realclean)
 customize:
-	@./bin/customize.pl
+	@./bin/customize.sh
 bugreport: 
 	@./bin/bugreport.sh

@@ -307,18 +307,27 @@ do_regedit(char *buff, char **bufcx, dbref player, dbref cause, dbref caller,
             }
          } /* While *str */
          *mybuffptr = '\0';
-         abuf = exec(player, cause, caller,
-                     EV_STRIP | EV_FCHECK | EV_EVAL, mybuff, cargs, ncargs);
-         safe_str(abuf, postbuf, &postp);
+         if ( key & 4 ) {
+            safe_str(mybuff, postbuf, &postp);
+         } else {
+            abuf = exec(player, cause, caller,
+                        EV_STRIP | EV_FCHECK | EV_EVAL, mybuff, cargs, ncargs);
+            safe_str(abuf, postbuf, &postp);
+            free_lbuf(abuf);
+         }
       } else {
-         abuf = exec(player, cause, caller,
-                     EV_STRIP | EV_FCHECK | EV_EVAL, fargs[i+1], cargs, ncargs);
-         safe_str(abuf, postbuf, &postp);
+         if ( key & 4 ) {
+            safe_str(fargs[i+1], postbuf, &postp);
+         } else {
+            abuf = exec(player, cause, caller,
+                        EV_STRIP | EV_FCHECK | EV_EVAL, fargs[i+1], cargs, ncargs);
+            safe_str(abuf, postbuf, &postp);
+            free_lbuf(abuf);
+         }
       }
 
       free_lbuf(mybuff);
       free_lbuf(obuf);
-      free_lbuf(abuf);
       if ( (*bufcx == (buff + LBUF_SIZE - 1)) &&
            (mudstate.ufunc_nest_lev >= mudconf.func_nest_lim) ) {
         break;
@@ -372,6 +381,29 @@ FUNCTION(fun_regeditalli)
    if (!fn_range_check("REGEDITALLI", nfargs, 3, 4, buff, bufcx))
       return;
    do_regedit(buff, bufcx, player, cause, caller, fargs, nfargs, cargs, ncargs, 3);
+}
+FUNCTION(fun_regeditlit)
+{
+   do_regedit(buff, bufcx, player, cause, caller, fargs, nfargs, cargs, ncargs, 4);
+}
+
+FUNCTION(fun_regeditilit)
+{
+   do_regedit(buff, bufcx, player, cause, caller, fargs, nfargs, cargs, ncargs, 5);
+}
+
+FUNCTION(fun_regeditalllit)
+{
+   if (!fn_range_check("REGEDITALL", nfargs, 3, 4, buff, bufcx))
+      return;
+   do_regedit(buff, bufcx, player, cause, caller, fargs, nfargs, cargs, ncargs, 6);
+}
+
+FUNCTION(fun_regeditallilit)
+{
+   if (!fn_range_check("REGEDITALLI", nfargs, 3, 4, buff, bufcx))
+      return;
+   do_regedit(buff, bufcx, player, cause, caller, fargs, nfargs, cargs, ncargs, 7);
 }
 
 void
@@ -518,7 +550,7 @@ do_regrep(char *buff, char **bufcx, dbref player, dbref cause, dbref caller,
           char *fargs[], int nfargs, char *cargs[], int ncargs, int key, int i_cluster)
 {
    dbref object, aowner;
-   int aflags;
+   int aflags, first, last_ret;
    char *ret, *s_text, *s_strtok, *s_strtokptr;
    ATTR *attr;
 
@@ -535,12 +567,20 @@ do_regrep(char *buff, char **bufcx, dbref player, dbref cause, dbref caller,
          s_text = atr_get(object, attr->number, &aowner, &aflags);
          if ( *s_text ) {
             s_strtok = strtok_r(s_text, " ", &s_strtokptr);
+            first = last_ret = 0;
             while (s_strtok) {
                aowner = match_thing(player, s_strtok);
                if ( !mudstate.chkcpu_toggle && Good_chk(aowner) && Cluster(aowner) ) {
-                  ret = grep_internal_regexp(player, object, fargs[2], fargs[1], key);
+                  ret = grep_internal_regexp(player, aowner, fargs[2], fargs[1], key);
+                  if ( first && last_ret )
+                     safe_chr(' ', buff, bufcx);
                   safe_str(ret, buff, bufcx);
+                  if ( *ret )
+                     last_ret = 1;
+                  else
+                     last_ret = 0;
                   free_lbuf(ret);
+                  first = 1;
                }
                s_strtok = strtok_r(NULL, " ", &s_strtokptr);
             }
@@ -693,6 +733,10 @@ FUN flist_regexp[] =
     {"REGEDITI", fun_regediti, 3, FN_NO_EVAL|FN_VARARGS, CA_PUBLIC, 0},
     {"REGEDITALL", fun_regeditall, 3, FN_NO_EVAL|FN_VARARGS, CA_PUBLIC, 0},
     {"REGEDITALLI", fun_regeditalli, 3, FN_NO_EVAL|FN_VARARGS, CA_PUBLIC, 0},
+    {"REGEDITLIT", fun_regeditlit, 3, FN_NO_EVAL|FN_VARARGS, CA_PUBLIC, 0},
+    {"REGEDITILIT", fun_regeditilit, 3, FN_NO_EVAL|FN_VARARGS, CA_PUBLIC, 0},
+    {"REGEDITALLLIT", fun_regeditalllit, 3, FN_NO_EVAL|FN_VARARGS, CA_PUBLIC, 0},
+    {"REGEDITALLILIT", fun_regeditallilit, 3, FN_NO_EVAL|FN_VARARGS, CA_PUBLIC, 0},
     {"REGRAB", fun_regrab, 2, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"REGRABI", fun_regrabi, 2, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},
     {"REGRABALL", fun_regraball, 2, FN_VARARGS, CA_PUBLIC, CA_NO_CODE},

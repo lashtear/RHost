@@ -606,7 +606,35 @@ int	ibf = -1;
 
 /* ---------------------------------------------------------------------------
  * badname_add, badname_check, badname_list: Add/look for/display bad names.
+ * protectname has similiar matches
  */
+
+int protectname_add (char *protect_name, dbref player)
+{
+   PROTECTNAME *bp;
+   int i_namecnt;
+
+   i_namecnt=0;
+   for ( bp=mudstate.protectname_head; bp; bp=bp->next ) {
+      if ( bp->i_name == player ) {
+         i_namecnt++;
+         if ( !stricmp(protect_name, bp->name) ) {
+            return 2;
+         }
+      }
+   }
+   if ( i_namecnt >= mudconf.max_name_protect ) {
+      return 1;
+   }
+   bp = (PROTECTNAME *)XMALLOC(sizeof(PROTECTNAME), "protectname.struc");
+   bp->name = XMALLOC(strlen(protect_name) + 1, "protectname.name");
+   bp->i_name = player;
+   bp->i_key = 0;
+   bp->next = mudstate.protectname_head;
+   mudstate.protectname_head = bp;
+   strcpy(bp->name, protect_name);
+   return 0;
+}
 
 void badname_add (char *bad_name)
 {
@@ -620,6 +648,85 @@ BADNAME	*bp;
 	mudstate.badname_head = bp;
 	strcpy(bp->name, bad_name);
 }
+
+dbref protectname_remove (char *protect_name, dbref player)
+{
+   PROTECTNAME *bp, *backp;
+   dbref target;
+
+   backp = NULL;
+   for ( bp=mudstate.protectname_head; bp; backp=bp, bp=bp->next ) {
+      if ( Wizard(player) || (bp->i_name == player) ) {
+         if ( !string_compare( protect_name, bp->name ) ) {
+            target = bp->i_name;
+            if ( backp ) {
+               backp->next = bp->next;
+            } else {
+               mudstate.protectname_head = bp->next;
+            }
+            if ( bp->i_key ) {
+               if ( string_compare( protect_name, Name(bp->i_name) ) ) {
+                  delete_player_name(target, bp->name);
+               }
+            }
+            XFREE(bp->name, "protectname.name");
+            XFREE(bp, "protectname.struc");
+            return target;
+         }
+      }
+   }
+   return -1;
+}
+
+dbref protectname_unalias (char *protect_name, dbref player)
+{
+   PROTECTNAME *bp, *backp;
+   dbref target;
+
+   backp = NULL;
+   for ( bp=mudstate.protectname_head; bp; backp=bp, bp=bp->next ) {
+      if ( Wizard(player) || (bp->i_name == player) ) {
+         if ( !string_compare( protect_name, Name(bp->i_name) ) ) {
+            return -3;
+         }
+         if ( !string_compare( protect_name, bp->name ) ) {
+            target = bp->i_name;
+            if ( bp->i_key ) {
+               delete_player_name(target, bp->name);
+               bp->i_key=0;
+               return target;
+            } else {
+               return -2;
+            }
+         }
+      }
+   }
+   return -1;
+}
+
+dbref protectname_alias (char *protect_name, dbref player)
+{
+   PROTECTNAME *bp, *backp;
+   dbref target;
+
+   backp = NULL;
+   for ( bp=mudstate.protectname_head; bp; backp=bp, bp=bp->next ) {
+      if ( Wizard(player) || (bp->i_name == player) ) {
+         if ( !string_compare( protect_name, bp->name ) ) {
+            target = bp->i_name;
+            if ( !bp->i_key ) {
+               add_player_name(target, bp->name);
+               bp->i_key=1;
+               return target;
+            } else {
+               return -2;
+            }
+         }
+      }
+   }
+   return -1;
+}
+
 
 void badname_remove (char *bad_name)
 {
@@ -641,6 +748,27 @@ BADNAME	*bp, *backp;
 	}
 }
 
+int protectname_check ( char *protect_name, dbref checker, int key ) {
+   PROTECTNAME *bp;
+
+   if ( Immortal(checker) && !key )
+      return 1;
+
+   for ( bp=mudstate.protectname_head; bp; bp=bp->next) {
+      if ( quick_wild(bp->name, protect_name) ) {
+         if ( !key && (bp->i_name == checker) ) {
+            if ( bp->i_key ) 
+               return 2;
+            else
+               return 1;
+         } else {
+            return 0;
+         }
+      }
+   }
+   return 1;
+}
+
 int badname_check (char *bad_name, dbref checker)
 {
 BADNAME *bp;
@@ -657,6 +785,114 @@ BADNAME *bp;
 			return 0;
 	}
 	return 1;
+}
+
+#define PROT_LIST 0
+#define PROT_SUMM 1
+#define PROT_BYPLAYER 2
+void protectname_list (dbref player, int key, dbref target) 
+{
+   PROTECTNAME *bp;
+   char *buff, *bufp, *s_fieldbuff;
+   int i_cntr, i_alias;
+   typedef struct tmp_holder {
+              dbref i_name;
+              int i_cntr;
+              int i_alias;
+              struct tmp_holder *next;
+           } THOLD;
+   THOLD *st_holder = NULL, *st_ptr = NULL, *st_ptr2 = NULL;
+
+   buff = bufp = alloc_lbuf("protectname_list");
+   /* we can have significantly more than LBUF names here */
+   switch (key ) {
+      case PROT_LIST:
+         notify(player, "                                 FULL LISTING                                ");
+         notify(player, "+------------------------------+------------------------------------+-------+");
+         notify(player, "| Player Name Protected        | Dbref#   [ Player Name           ] | Alias |");
+         notify(player, "+------------------------------+------------------------------------+-------+");
+         i_cntr=0;
+         for ( bp=mudstate.protectname_head; bp; bp=bp->next) {
+            if ( Wizard(player) || (player == bp->i_name) ) {
+               if ( player == bp->i_name ) {
+                  i_cntr++;
+               }
+               bufp = buff;
+               notify(player, safe_tprintf(buff, &bufp, "| %-28.28s | #%-7d [ %-21.21s ] |   %c   |", 
+                              bp->name, bp->i_name, (Good_chk(bp->i_name) ? Name(bp->i_name) : "<INVALID>"),
+                              ((bp->i_key > 0) ? 'Y' : 'N') ));
+            }
+         }
+         notify(player, "+------------------------------+------------------------------------+-------+");
+         notify(player, safe_tprintf(buff, &bufp, "You have %d out of %d names protected.", i_cntr, mudconf.max_name_protect));
+         break;
+      case PROT_SUMM:
+         for ( bp=mudstate.protectname_head; bp; bp=bp->next) {
+            for (st_ptr = st_holder; st_ptr; st_ptr = st_ptr->next) {
+               if ( st_ptr->i_name == bp->i_name ) {
+                  st_ptr->i_cntr++;
+                  if ( bp->i_key > 0 ) 
+                     st_ptr->i_alias++;
+                  break;
+               }
+            }
+            if ( !st_ptr ) {
+               st_ptr2 = malloc(sizeof(THOLD));
+               st_ptr2->i_name = bp->i_name;
+               st_ptr2->i_cntr = 1;
+               if ( bp->i_key > 0 ) 
+                  st_ptr2->i_alias = 1;
+               else
+                  st_ptr2->i_alias = 0;
+               st_ptr2->next = NULL;
+               if ( !st_holder )
+                  st_holder = st_ptr2;
+               else {
+                  for (st_ptr = st_holder; st_ptr && st_ptr->next; st_ptr = st_ptr->next);
+                  st_ptr->next = st_ptr2;
+               }
+            }
+         }
+         st_ptr = st_holder;
+         notify(player, "                              BY SUMMARY LISTING                             ");
+         notify(player, "+-----------------------------------------+-------------------------+");
+         notify(player, "| Dbref# Owner [ Player Name            ] | Total Number of Entries |");
+         notify(player, "+-----------------------------------------+-------------------------+");
+         s_fieldbuff = alloc_mbuf("do_protect_list");
+         while ( st_ptr ) {
+            sprintf(s_fieldbuff, "| #%-11d [ %-22.22s ] | %-5d/%-5d [%3d Alias] |", 
+                    st_ptr->i_name, (Good_chk(st_ptr->i_name) ? Name(st_ptr->i_name) : "<INVALID>"), 
+                    st_ptr->i_cntr, mudconf.max_name_protect, st_ptr->i_alias);
+            notify(player, s_fieldbuff);
+            st_ptr2 = st_ptr->next;
+            free(st_ptr);
+            st_ptr = st_ptr2;
+         }
+         free_mbuf(s_fieldbuff);
+         notify(player, "+-----------------------------------------+-------------------------+");
+         break;
+      case PROT_BYPLAYER:
+         notify(player, "                              BY PLAYER LISTING                              ");
+         notify(player, "+------------------------------+------------------------------------+-------+");
+         notify(player, "| Player Name Protected        | Dbref#   [ Player Name           ] | Alias |");
+         notify(player, "+------------------------------+------------------------------------+-------+");
+         i_cntr=i_alias=0;
+         for ( bp=mudstate.protectname_head; bp; bp=bp->next) {
+            if ( Wizard(player) && (target == bp->i_name) ) {
+               i_cntr++;
+               if ( bp->i_key )
+                  i_alias++;
+               bufp = buff;
+               notify(player, safe_tprintf(buff, &bufp, "| %-28.28s | #%-7d [ %-21.21s ] |   %c   |", 
+                              bp->name, bp->i_name, (Good_chk(bp->i_name) ? Name(bp->i_name) : "<INVALID>"),
+                              ((bp->i_key > 0) ? 'Y' : 'N') ));
+            }
+         }
+         notify(player, "+------------------------------+------------------------------------+-------+");
+         notify(player, safe_tprintf(buff, &bufp, "Target player has %d out of %d names protected (%d aliased).", i_cntr, mudconf.max_name_protect, i_alias));
+         break;
+   }
+   free_lbuf(buff);
 }
 
 void badname_list (dbref player, const char *prefix)

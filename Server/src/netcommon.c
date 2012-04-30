@@ -3294,7 +3294,7 @@ check_connect(DESC * d, const char *msg)
 	STARTLOG(LOG_LOGIN | LOG_SECURITY, "CON", "OVERFLOW")
 	  *(((char *)msg)+LBUF_SIZE-MBUF_SIZE-1) = '\0';
 	  buff = alloc_lbuf("check_conn.LOG.over");
-	  sprintf(buff, "[%d/%s] Attempted overflow -> %.3900s",
+	  sprintf(buff, "[%d/%s] Attempted overflow -> %.3800s",
 		d->descriptor, d->addr, msg);
 	  log_text(buff);
 	  free_lbuf(buff);
@@ -3307,6 +3307,9 @@ check_connect(DESC * d, const char *msg)
 	mudstate.debug_cmd = cmdsave;
 	RETURN(0); /* #146 */
     }
+
+/* PUT IN TOR PROTECTION HERE FOR CO, CD, CR and REG */
+
 /*
     STARTLOG(LOG_CONNECT, "CMD", "BAD")
        buff = alloc_lbuf("check_conn.LOG.bad");
@@ -4063,6 +4066,7 @@ NDECL(process_commands)
                            *mudstate.global_regs[i] = '\0';
                            *mudstate.global_regsname[i] = '\0';
                         }
+                        mudstate.global_regs_wipe = 0;
 			do_command(d, (d->flags & DS_HAS_DOOR) ? &t->cmd[1] : t->cmd);
                         if ( InProgram(d->player) ) {
                            progatr = atr_get(d->player, A_PROGPROMPTBUF, &aowner2, &aflags2);
@@ -4093,6 +4097,27 @@ NDECL(process_commands)
     VOIDRETURN; /* #148 */
 }
 
+int
+blacklist_check(struct in_addr host)
+{
+   int i_return;
+   BLACKLIST *b_host;
+
+   DPUSH;
+   i_return=0;
+   if ( mudstate.blacklist_cnt < 1 ) {
+      RETURN(i_return);
+   }
+   b_host = mudstate.bl_list;
+   while ( b_host ) {
+      if ( (host.s_addr & b_host->mask_addr.s_addr) == b_host->site_addr.s_addr ) {
+         i_return=1;
+         break;
+      }
+      b_host = b_host->next;
+   }
+   RETURN(i_return);
+}
 /* ---------------------------------------------------------------------------
  * site_check: Check for site flags in a site list.
  */
@@ -4242,8 +4267,19 @@ list_hosts(dbref player, char *hostchrtype, char *hostchrmeth)
 void 
 list_siteinfo(dbref player)
 {
+    char *s_buff;
 
     DPUSH; /* #152 */
+    
+    s_buff = alloc_mbuf("list_siteinfo");
+    if ( mudstate.blacklist_cnt > 0 ) {
+       sprintf(s_buff, "Blacklist: There are currently %d entries in the blacklist.",
+               mudstate.blacklist_cnt); 
+       notify(player, s_buff);
+    } else {
+       notify(player, "Blacklist: Blacklists are currently not populated.");
+    }
+    free_mbuf(s_buff);
     list_sites(player, mudstate.access_list, "Site Access",
 	       S_ACCESS);
     list_sites(player, mudstate.suspect_list, "Suspected Sites",

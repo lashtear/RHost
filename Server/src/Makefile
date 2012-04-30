@@ -17,6 +17,8 @@ CPP = $(CC) -E
 LIBS = -L./gdbm-1.8.3/.libs/ -lgdbm_compat -L./gdbm-1.8.3/ -lgdbm
 #LIBS = -L./qdbm/ -lqdbm
 LIBOBJS = 
+# for compiling on lowmem systems use this
+#CFLAGS = --param ggc-min-expand=0 --param ggc-min-heapsize=8192
 
 # If you wish to debug the code, run under this
 OPTIM = -g

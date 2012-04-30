@@ -1,5 +1,43 @@
                          RhostMUSH 3.9.1 Update File
 Credits for any features should go here.  All changes should go into the main help.txt file
+cluster_hasattr() bug for #-1 that should be 0 for non-existant attribs.
+				- Thanks Ol'Sarge@Cajun
+cluster_flags()/cluster_hasflag() added for cluster support
+				- Thanks Cody
+Fix for log.c C99 compile issues on old compilers.
+				- Thanks Sombranox
+sees() handles optional third argument for exits
+				- Thanks Sombranox
+#lambda inherited from parent wrongly - Fixed
+				- Thanks Xandar
+writable() added for TM3 compatability.
+				- Thanks Wyrd
+@list user_attrib now does flag based matching
+				- Thanks sombranox
+cluster_set() didn't evaluate attributes right
+				- Thanks Cody
+cluster_regrep*() didn't select the right proper target object
+				- Thanks Cody
+flag setting/notifying identifies if target was set/unset before
+				- Thanks PennMUSH (Kimiko)
+elist() didn't evaluate properly - Introduced 3.9.1p2
+				- Thanks Cary
+page alerts you if you're cloaked from people you page.
+				- Thanks Wyrd
+Added flatfile stale attribute cleaner and penn 1.8 flatfile converter
+                                - Thanks Wyrd
+Added switch_search @admin param for switching functionality.
+				- Thanks Minion
+Added @include to Rhost
+				- Thanks PennMUSH (Javelin)
+@trigger can handle $command/^listen attributes
+				- Thanks TinyMUSH3/PennMUSH
+error.txt files can evaluate arguments
+				- Thanks Camber/Orion
+mux_lcon_compat added to allow lcon() to return empty string.
+				- Thanks Minion
+cluster_wipe added for clusters
+				- Thanks Cary
 
 
 --------------------------------------------------------------------------------
@@ -406,6 +444,8 @@ OUTPUTPREFIX/OUTPUTSUFFIX stored through reboots - Fixed [SVN 233]
 Added missing topics for clustering - Fixed [SVN 244]
 				- Thanks Cary
 Logging network errors could cause heavy logging on really bad networks - Fixed [SVN 245]
+Connect honors @hide/unfindable/dark [SVN 320]
+				- Thanks Planet X
 
 
 XXXXX

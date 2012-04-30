@@ -22,6 +22,7 @@ extern POWENT pow_table[];
 extern POWENT depow_table[];
 extern void depower_set(dbref, dbref, char *, int);
 extern dbref    FDECL(match_thing, (dbref, char *));
+extern void	FDECL(process_command, (dbref, dbref, int, char *, char *[], int, int));
 
 dbref match_controlled(dbref player, const char *name)
 {
@@ -94,6 +95,7 @@ void do_name(dbref player, dbref cause, int key, const char *name,
 		const char *newname)
 {
 dbref	thing;
+int	i_chk1, i_chk2;
 char	*buff;
 
 	if ((thing = match_controlled(player, name)) == NOTHING)
@@ -111,10 +113,13 @@ char	*buff;
 	  return;
 	}
 
+        i_chk1 = i_chk2 = 0;
 	/* check for renaming a player */
 	if (isPlayer(thing)) {
 		buff = trim_spaces((char *)strip_all_special(newname));
-		if (!ok_player_name(buff) ||
+                i_chk1 = protectname_check(Name(thing), player, 0);
+                i_chk2 = protectname_check(buff, player, 0);
+		if (!ok_player_name(buff) || !i_chk2 ||
 			   !badname_check(buff, player)) {
 			notify_quiet(player, "You can't use that name.");
 			free_lbuf(buff);
@@ -124,9 +129,11 @@ char	*buff;
 
 			/* string_compare allows changing foo to Foo, etc. */
 
-			notify_quiet(player, "That name is already in use.");
-			free_lbuf(buff);
-			return;
+                        if ( i_chk2 != 2 ) {
+			   notify_quiet(player, "That name is already in use.");
+			   free_lbuf(buff);
+			   return;
+                        }
 		}
 
 		/* everything ok, notify */
@@ -140,9 +147,13 @@ char	*buff;
 				"[Suspect] %s renamed to %s",Name(thing),buff);
 		}
 
-		delete_player_name(thing, Name(thing));
+                if ( i_chk1 != 2 ) {
+		   delete_player_name(thing, Name(thing));
+                }
 		s_Name(thing, buff);
-		add_player_name(thing, Name(thing));
+                if ( i_chk2 != 2 ) {
+		   add_player_name(thing, Name(thing));
+                }
 		if (!Quiet(player) && !Quiet(thing) && !(key & SIDEEFFECT))
 			notify_quiet(player, "Name set.");
 		free_lbuf(buff);
@@ -208,6 +219,8 @@ char	*oldalias, *trimalias;
 
 			/* Make sure new alias isn't already in use */
 
+			notify_quiet(player, "That name is already in use.");
+                } else if ( !protectname_check(trimalias, player, 0) ) {
 			notify_quiet(player, "That name is already in use.");
 		} else {
 
@@ -668,7 +681,7 @@ char    *buff2, *buff2ret, *tpr_buff, *tprp_buff;
 ATTR	*attr;
 
 	attr = atr_num2(attrnum);
-	if ((attr->flags) & AF_IS_LOCK) {
+	if ( !attr || ((attr->flags) & AF_IS_LOCK) ) {
 	  notify_quiet(player,"Permission denied.");
 	  return;
 	}
@@ -914,13 +927,14 @@ void do_set(dbref player, dbref cause, int key, char *name, char *flag)
 {
 dbref	thing, thing2, aowner;
 char	*p, *buff, *tpr_buff, *tprp_buff;
-int	atr, atr2, aflags, clear, flagvalue, could_hear;
+int	atr, atr2, aflags, clear, flagvalue, could_hear, i_flagchk;
 ATTR	*attr, *attr2;
 int     ibf = -1;
 
 	/* See if we have the <obj>/<attr> form, which is how you set attribute
 	 * flags.
 	 */
+        i_flagchk = 0;
 	if (parse_attrib (player, name, &thing, &atr)) {
 		if (atr != NOTHING) {
 
@@ -971,6 +985,7 @@ int     ibf = -1;
 
 			/* Go do it */
 
+                        i_flagchk = ((aflags & flagvalue) ? 1 : 0);
 			if (clear)
 				aflags &= ~flagvalue;
 			else
@@ -989,24 +1004,28 @@ int     ibf = -1;
 				if (clear) {
 				  if ( (key & SET_NOISY) || TogNoisy(player) ) {
                                         if ( give_name_aflags(player, cause, flagvalue) )
-					   notify_quiet(player, safe_tprintf(tpr_buff, &tprp_buff, "Set - %s/%s (cleared flag %s).", 
-                                                                Name(thing), attr->name, 
+					   notify_quiet(player, safe_tprintf(tpr_buff, &tprp_buff, "Set - %s/%s (cleared flag%s%s).", 
+                                                                Name(thing), attr->name,
+                                                                (i_flagchk ? " " : " [again] "),
                                                                 give_name_aflags(player, cause, flagvalue)));
                                         else
-					   notify_quiet(player, safe_tprintf(tpr_buff, &tprp_buff, "Set - %s/%s (cleared flag).", 
-                                                                Name(thing), attr->name));
+					   notify_quiet(player, safe_tprintf(tpr_buff, &tprp_buff, "Set - %s/%s (cleared %s).", 
+                                                                Name(thing), attr->name,
+                                                                (i_flagchk ? "flag" : "[again] flag")));
 				  } else
 					notify_quiet(player, "Cleared.");
 				}
 				else {
 				  if ( (key & SET_NOISY) || TogNoisy(player) ) {
                                         if ( give_name_aflags(player, cause, flagvalue) )
-					   notify_quiet(player, safe_tprintf(tpr_buff, &tprp_buff, "Set - %s/%s (set flag %s).", 
+					   notify_quiet(player, safe_tprintf(tpr_buff, &tprp_buff, "Set - %s/%s (set flag%s%s).", 
                                                                 Name(thing), attr->name,
+                                                                (i_flagchk ? " [again] " : " "),
                                                                 give_name_aflags(player, cause, flagvalue)));
                                         else
-					   notify_quiet(player, safe_tprintf(tpr_buff, &tprp_buff, "Set - %s/%s (set flag).", 
-                                                                Name(thing), attr->name));
+					   notify_quiet(player, safe_tprintf(tpr_buff, &tprp_buff, "Set - %s/%s (set %s).", 
+                                                                Name(thing), attr->name,
+                                                                (i_flagchk ? "[again] flag" : "flag")));
 				  } else
 					notify_quiet(player, "Set.");
 				}
@@ -1749,83 +1768,155 @@ OBLOCKMASTER master;
 
 void do_wipe(dbref player, dbref cause, int key, char *it)
 {
-dbref	thing, aowner;
-int	attr, got_one, aflags, orig_revwild;
-ATTR	*ap;
-char	*atext, *buff2ret, *tpr_buff, *tprp_buff;
-OBLOCKMASTER master;
+   dbref thing, aowner;
+   int attr, got_one, aflags, orig_revwild;
+   ATTR *ap;
+   char *atext, *buff2ret, *tpr_buff, *tprp_buff;
+   OBLOCKMASTER master;
 
-        olist_init(&master);
-        orig_revwild = mudstate.reverse_wild;
-        if ( key & WIPE_PRESERVE )
-           mudstate.reverse_wild = 1;
-	if (!it || !*it || !parse_attrib_wild(player, it, &thing, 0, 0, 1, &master, 0)) {
-		notify_quiet(player, "No match.");
-		olist_cleanup(&master);
-        	mudstate.reverse_wild = orig_revwild;
-		return;
-	}
-        mudstate.reverse_wild = orig_revwild;
-        if ( (( Flags(thing) & SAFE ) || Indestructable(thing)) && mudconf.safe_wipe > 0 ) {
-           if ( !(Controls( player, thing ) || could_doit(player,thing,A_LTWINK,0)) )
-                notify_quiet(player, "No matching attributes.");
-           else
-                tprp_buff = tpr_buff = alloc_lbuf("do_wipe");
-		notify_quiet(player, safe_tprintf(tpr_buff, &tprp_buff, "You can not @wipe %s objects.", 
-                             Indestructable(thing) ? "indestructable" : "safe" ) );
-                free_lbuf(tpr_buff);
-		olist_cleanup(&master);
-		return;
-        }
+   mudstate.wipe_state = 0;
+   olist_init(&master);
+   orig_revwild = mudstate.reverse_wild;
+   if ( key & WIPE_PRESERVE )
+      mudstate.reverse_wild = 1;
+   if (!it || !*it || !parse_attrib_wild(player, it, &thing, 0, 0, 1, &master, 0)) {
+      if ( !(key & SIDEEFFECT) )
+         notify_quiet(player, "No match.");
+      olist_cleanup(&master);
+      mudstate.reverse_wild = orig_revwild;
+      mudstate.wipe_state = -1;
+      return;
+   }
+   mudstate.reverse_wild = orig_revwild;
+   if ( (( Flags(thing) & SAFE ) || Indestructable(thing)) && mudconf.safe_wipe > 0 ) {
+      if ( !(Controls( player, thing ) || could_doit(player,thing,A_LTWINK,0)) ) {
+         if ( !(key & SIDEEFFECT) ) {
+            notify_quiet(player, "No matching attributes.");
+         }
+         mudstate.wipe_state = 0;
+      } else {
+         if ( !(key & SIDEEFFECT) ) {
+            tprp_buff = tpr_buff = alloc_lbuf("do_wipe");
+            notify_quiet(player, safe_tprintf(tpr_buff, &tprp_buff, "You can not @wipe %s objects.", 
+                         Indestructable(thing) ? "indestructable" : "safe" ) );
+            free_lbuf(tpr_buff);
+         }
+         mudstate.wipe_state = -2;
+      }
+      olist_cleanup(&master);
+      return;
+   }
 
-	/* Iterate through matching attributes, zapping the writable ones */
+   /* Iterate through matching attributes, zapping the writable ones */
 
-	got_one = 0;
-	atext = alloc_lbuf("do_wipe.atext");
-	for (attr=olist_first(&master); attr!=NOTHING; attr=olist_next(&master)) {
-		ap = atr_num(attr);
-		if (ap) {
+   got_one = 0;
+   atext = alloc_lbuf("do_wipe.atext");
+   for (attr=olist_first(&master); attr!=NOTHING; attr=olist_next(&master)) {
+      ap = atr_num(attr);
+      if (ap) {
+         /* Get the attr and make sure we can modify it. */
+         atr_get_str(atext, thing, ap->number, &aowner, &aflags);
+         if (Set_attr(player, thing, ap, aflags) &&
+             !(mudconf.safe_wipe && ((aflags & AF_SAFE) || (ap->flags & AF_SAFE))) ) {
+            atr_clr(thing, ap->number);
+            if ( (ap->flags & AF_LOGGED) || (aflags & AF_LOGGED) ) {
+               STARTLOG(LOG_ALWAYS, "LOG", "ATTR");
+                  log_name_and_loc(player);
+                  buff2ret = alloc_lbuf("log_attribute");
+                  sprintf(buff2ret, " <cause: #%d> Attribute '%s' on #%d cleared",
+                          cause, ap->name, thing);
+                  log_text(buff2ret);
+                  free_lbuf(buff2ret);
+               ENDLOG
+            }
+            got_one = 1;
+            mudstate.wipe_state++;
+         }
+      }
+   }
 
-			/* Get the attr and make sure we can modify it. */
+   /* Clean up */
+   free_lbuf(atext);
+   olist_cleanup(&master);
 
-			atr_get_str(atext, thing, ap->number,
-				&aowner, &aflags);
-			if (Set_attr(player, thing, ap, aflags) &&
-                            !(mudconf.safe_wipe && ((aflags & AF_SAFE) || (ap->flags & AF_SAFE))) ) {
-				atr_clr(thing, ap->number);
-                                if ( (ap->flags & AF_LOGGED) || (aflags & AF_LOGGED) ) {
-                                    STARTLOG(LOG_ALWAYS, "LOG", "ATTR");
-                                    log_name_and_loc(player);
-                                    buff2ret = alloc_lbuf("log_attribute");
-                                    sprintf(buff2ret, " <cause: #%d> Attribute '%s' on #%d cleared",
-                                                       cause, ap->name, thing);
-                                    log_text(buff2ret);
-                                    free_lbuf(buff2ret);
-                                    ENDLOG
-                                }
-				got_one = 1;
-			}
-		}
-	}
-	/* Clean up */
-
-	free_lbuf(atext);
-	olist_cleanup(&master);
-
-	if (!got_one) {
-		notify_quiet(player, "No matching attributes.");
-	} else {
-		if (!Quiet(player) && !(key & SIDEEFFECT))
-			notify_quiet(player, "Wiped.");
-	}
+   if (!got_one) {
+      if ( !(key & SIDEEFFECT) ) {
+         notify_quiet(player, "No matching attributes.");
+      }
+   } else {
+      if (!Quiet(player) && !(key & SIDEEFFECT)) {
+         tprp_buff = tpr_buff = alloc_lbuf("do_wipe");
+         notify_quiet(player, safe_tprintf(tpr_buff, &tprp_buff, "Wiped - %d attributes.", mudstate.wipe_state));
+         free_lbuf(tpr_buff);
+      }
+   }
 }
+
+void do_include(dbref player, dbref cause, int key, char *string,
+                char *argv[], int nargs, char *cargs[], int ncargs)
+{
+   dbref thing, owner;
+   int attrib, flags, i;
+   char *buff1, *buff1ptr, *cp, *s_buff[10];
+
+   if ( desc_in_use != NULL ) {
+      notify_quiet(player, "You can not use @include at command line.");
+      return;
+   }
+   if ( mudstate.includenest >= 3 ) {
+      notify_quiet(player, "Exceeded @include nest limit.");
+      return;
+   }
+   if ( mudstate.includecnt >= 10 ) {
+      notify_quiet(player, "Exceeded total number of @includes allowed.");
+      return;
+   }
+   if (!parse_attrib(player, string, &thing, &attrib) || (attrib == NOTHING) || (thing == NOTHING)) {
+      notify_quiet(player, "No match.");
+      return;
+   }
+   if (!Good_chk(thing) || (!controls(player, thing) &&
+       !could_doit(player,thing,A_LTWINK,0)) ) {
+       notify_quiet(player, "Permission denied.");
+       return;
+   }
+   mudstate.includecnt++;
+   mudstate.includenest++;
+   buff1ptr = buff1 = atr_pget(thing, attrib, &owner, &flags);
+   if ( key & INCLUDE_COMMAND ) {
+      if ( ((*buff1 == '$') || (*buff1 == '^')) && (strchr(buff1, ':') != NULL) ) {
+         buff1ptr = strchr(buff1, ':') + 1;
+      }
+   }
+
+   for (i = 0; i < 10; i++) {
+      s_buff[i] = alloc_lbuf("do_include_buffers");
+      if ( (i <= ncargs) && cargs[i] && *cargs[i] )
+         memcpy(s_buff[i], cargs[i], LBUF_SIZE);
+      if ( (i <= nargs) && argv[i] && *argv[i] )
+         memcpy(s_buff[i], argv[i], LBUF_SIZE);
+   }
+   while (buff1ptr && !mudstate.breakst) {
+      cp = parse_to(&buff1ptr, ';', 0);
+      if (cp && *cp) {
+         process_command(player, cause, 0, cp, s_buff, 10, InProgram(player));
+      }
+   }
+   free_lbuf(buff1);
+   for (i = 0; i < 10; i++) {
+      free_lbuf(s_buff[i]);
+   }
+
+   mudstate.includenest--;
+}
+
 
 void do_trigger(dbref player, dbref cause, int key, char *object, 
 		char *argv[], int nargs)
 {
   dbref thing, owner, owner2, owner3, it;
   int attrib, flags, flags2, flags3, num, didtrig;
-  char *buff1, *buff2, *charges, *buf, *myplayer, *tpr_buff, *tprp_buff;
+  char *buff1, *buff1ptr, *buff2, *charges, *buf, *myplayer, *tpr_buff, *tprp_buff;
 
   didtrig = it = 0;
   if ( key & TRIG_PROGRAM ) {
@@ -1857,9 +1948,14 @@ void do_trigger(dbref player, dbref cause, int key, char *object,
          return;
      }
   }
-  buff1 = atr_pget(thing, attrib, &owner2, &flags2);
+  buff1ptr = buff1 = atr_pget(thing, attrib, &owner2, &flags2);
+  if ( key & TRIG_COMMAND ) {
+     if ( ((*buff1 == '$') || (*buff1 == '^')) && (strchr(buff1, ':') != NULL) ) {
+        buff1ptr = strchr(buff1, ':') + 1;
+     }
+  }
   if ( !(key & TRIG_PROGRAM) ) {
-     if (*buff1) {
+     if (*buff1ptr) {
        charges = atr_pget(thing, A_CHARGES, &owner, &flags);
        if (*charges) {
          num = atoi(charges);
@@ -1868,6 +1964,7 @@ void do_trigger(dbref player, dbref cause, int key, char *object,
          } else if (*(buff2 = atr_pget(thing, A_RUNOUT, &owner3, &flags3))) {
            free_lbuf(buff1);
            buff1 = buff2;
+           buff1ptr = buff1;
          } else {
            tprp_buff = tpr_buff = alloc_lbuf("do_trigger");
 	   notify_quiet(player, safe_tprintf(tpr_buff, &tprp_buff, "%s has no more charges.", Name(thing)));
@@ -1879,15 +1976,15 @@ void do_trigger(dbref player, dbref cause, int key, char *object,
          }
        }
        free_lbuf(charges);
-       wait_que(thing, player, 0, NOTHING, buff1, argv, nargs, 
+       wait_que(thing, player, 0, NOTHING, buff1ptr, argv, nargs, 
                 mudstate.global_regs, mudstate.global_regsname);
      } else {
         notify_quiet(player, "No match.");
         didtrig = 1;
      }
   } else {
-     if (*buff1) {
-        wait_que(it, player, 0, NOTHING, buff1, argv, nargs, 
+     if (*buff1ptr) {
+        wait_que(it, player, 0, NOTHING, buff1ptr, argv, nargs, 
                  mudstate.global_regs, mudstate.global_regsname);
      } else {
         notify_quiet(player, "No match.");

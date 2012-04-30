@@ -129,6 +129,13 @@ NAMETAB attrib_sw[] =
     {(char *) "rename", 1, CA_GOD | CA_IMMORTAL | CA_WIZARD, 0, ATTRIB_RENAME},
     {NULL, 0, 0, 0, 0}};
 
+NAMETAB blacklist_sw[] =
+{
+    {(char *) "list", 2, CA_IMMORTAL, 0, BLACKLIST_LIST},
+    {(char *) "clear", 1, CA_IMMORTAL, 0, BLACKLIST_CLEAR},
+    {(char *) "load", 2, CA_IMMORTAL, 0, BLACKLIST_LOAD},
+    {NULL, 0, 0, 0, 0}};
+
 NAMETAB boot_sw[] =
 {
     {(char *) "port", 1, CA_WIZARD, 0, BOOT_PORT | SW_MULTIPLE},
@@ -156,6 +163,7 @@ NAMETAB cluster_sw[] = {
   {(char *) "grep", 1, CA_WIZARD, CA_CLUSTER, CLUSTER_GREP},
   {(char *) "reaction", 3, CA_WIZARD, CA_CLUSTER, CLUSTER_REACTION},
   {(char *) "trigger", 1, CA_WIZARD, CA_CLUSTER, CLUSTER_TRIGGER},
+  {(char *) "function", 3, CA_WIZARD, CA_CLUSTER, CLUSTER_FUNC | SW_MULTIPLE},
   {NULL, 0, 0, 0, 0}
 };
 
@@ -295,6 +303,7 @@ NAMETAB fixdb_sw[] =
     {(char *) "owner", 1, CA_IMMORTAL, 0, FIXDB_OWNER},
     {(char *) "pennies", 1, CA_IMMORTAL, 0, FIXDB_PENNIES},
     {(char *) "rename", 1, CA_IMMORTAL, 0, FIXDB_NAME},
+    {(char *) "type", 1, CA_IMMORTAL, 0, FIXDB_TYPE},
 /* {(char *)"rm_pname", 1,      CA_IMMORTAL,            0, FIXDB_DEL_PN}, */
     {NULL, 0, 0, 0, 0}};
 
@@ -308,7 +317,8 @@ NAMETAB flagdef_sw[] =
     {(char *) "set", 2, CA_IMMORTAL, 0, FLAGDEF_SET},
     {(char *) "unset", 1, CA_IMMORTAL, 0, FLAGDEF_UNSET},
     {(char *) "see", 2, CA_IMMORTAL, 0, FLAGDEF_SEE},
-    {(char *) "list", 1, CA_IMMORTAL, 0, FLAGDEF_LIST},
+    {(char *) "list", 2, CA_IMMORTAL, 0, FLAGDEF_LIST},
+    {(char *) "letter", 2, CA_IMMORTAL, 0, FLAGDEF_CHAR},
     {NULL, 0, 0, 0, 0}};
 
 NAMETAB fpose_sw[] =
@@ -320,6 +330,7 @@ NAMETAB fpose_sw[] =
 NAMETAB function_sw[] =
 {
     {(char *) "privileged", 3, CA_WIZARD, 0, FN_PRIV},
+    {(char *) "protected", 3, CA_WIZARD, 0, FN_PROTECT|SW_MULTIPLE},
     {(char *) "list", 1, CA_WIZARD, 0, FN_LIST},
     {(char *) "preserve", 3, CA_WIZARD, 0, FN_PRES|SW_MULTIPLE},
     {(char *) "delete", 2, CA_WIZARD, 0, FN_DEL},
@@ -603,6 +614,13 @@ NAMETAB drain_sw[] =
 {
     {(char *) "quiet", 1, CA_PUBLIC, 0, NFY_QUIET | SW_MULTIPLE},
     {NULL, 0, 0, 0, 0}};
+
+
+NAMETAB include_sw[] =
+{
+    {(char *) "command", 1, CA_PUBLIC, 0, INCLUDE_COMMAND},
+    {NULL, 0, 0, 0, 0}};
+
 NAMETAB notify_sw[] =
 {
     {(char *) "all", 1, CA_PUBLIC, 0, NFY_NFYALL},
@@ -651,6 +669,17 @@ NAMETAB pose_sw[] =
     {(char *) "default", 1, CA_PUBLIC, 0, 0},
     {(char *) "nospace", 1, CA_PUBLIC, 0, SAY_NOSPACE},
     //    {(char *) "noeval", 1, 0, CA_PUBLIC, SAY_PNOEVAL}, 
+    {NULL, 0, 0, 0, 0}};
+
+NAMETAB protect_sw[] =
+{
+    {(char *) "add", 2, CA_PUBLIC, 0, PROTECT_ADD},
+    {(char *) "delete", 1, CA_PUBLIC, 0, PROTECT_DEL},
+    {(char *) "list", 1, CA_PUBLIC, 0, PROTECT_LIST},
+    {(char *) "byplayer", 1, CA_WIZARD, 0, PROTECT_BYPLAYER},
+    {(char *) "summary", 1, CA_WIZARD, 0, PROTECT_SUMMARY},
+    {(char *) "alias", 2, CA_PUBLIC, 0, PROTECT_ALIAS},
+    {(char *) "unalias", 1, CA_PUBLIC, 0, PROTECT_UNALIAS},
     {NULL, 0, 0, 0, 0}};
 
 NAMETAB power_sw[] =
@@ -763,6 +792,15 @@ NAMETAB site_sw[] =
   {(char *) "nodns", 3, CA_IMMORTAL, 0, SITE_NODNS},
   {NULL, 0, 0, 0, 0}};
 
+NAMETAB snapshot_sw[] =
+{
+  {(char *) "load", 2, CA_IMMORTAL, 0, SNAPSHOT_LOAD},
+  {(char *) "unload", 2, CA_IMMORTAL, 0, SNAPSHOT_UNLOAD},
+  {(char *) "list", 2, CA_IMMORTAL, 0, SNAPSHOT_LIST},
+  {(char *) "delete", 2, CA_IMMORTAL, 0, SNAPSHOT_DEL},
+  {(char *) "verify", 2, CA_IMMORTAL, 0, SNAPSHOT_VERIFY},
+  {NULL, 0, 0, 0, 0}};
+
   /* snoop code -Thorin */
 NAMETAB snoop_sw[] =
 {
@@ -826,7 +864,8 @@ NAMETAB toggle_sw[] =
 
 NAMETAB trig_sw[] =
 {
-    {(char *) "quiet", 1, CA_PUBLIC, 0, TRIG_QUIET},
+    {(char *) "command", 1, CA_PUBLIC, 0, TRIG_COMMAND},
+    {(char *) "quiet", 1, CA_PUBLIC, 0, TRIG_QUIET | SW_MULTIPLE},
     {NULL, 0, 0, 0, 0}};
 
 NAMETAB thaw_sw[] =
@@ -913,15 +952,16 @@ CMDENT command_table[] =
     {(char *) "@areg", areg_sw, CA_IMMORTAL, 0,
      0, CS_TWO_ARG | CS_INTERP, 0, do_areg},
     {(char *) "@assert", NULL, CA_PUBLIC, CA_NO_CODE,
-     0, CS_TWO_ARG | CS_CMDARG, 0, do_assert},
+     0, CS_TWO_ARG | CS_CMDARG | CS_NOINTERP, 0, do_assert},
     {(char *) "@attribute", attrib_sw, CA_GOD | CA_IMMORTAL | CA_WIZARD, 0,
      0, CS_TWO_ARG | CS_INTERP, 0, do_attribute},
+    {(char *) "@blacklist", blacklist_sw, CA_LOCATION | CA_IMMORTAL, 0, 0, CS_NO_ARGS | CS_INTERP, 0, do_blacklist},
     {(char *) "@boot", boot_sw, CA_NO_GUEST | CA_NO_SLAVE | CA_NO_WANDER, 0,
      0, CS_ONE_ARG | CS_INTERP, 0, do_boot},
     {(char *) "@bfree", NULL, CA_GOD | CA_IMMORTAL, 0,
      0, CS_NO_ARGS, 0, do_buff_free},
     {(char *) "@break", NULL, CA_PUBLIC, CA_NO_CODE,
-     0, CS_TWO_ARG | CS_CMDARG, 0, do_break},
+     0, CS_TWO_ARG | CS_CMDARG | CS_NOINTERP, 0, do_break},
     {(char *) "@chown", chown_sw,
      CA_NO_SLAVE | CA_NO_GUEST | CA_GBL_BUILD | CA_NO_WANDER, 0,
      CHOWN_ONE, CS_TWO_ARG | CS_INTERP, 0, do_chown},
@@ -1023,6 +1063,9 @@ CMDENT command_table[] =
      0, CS_ONE_ARG | CS_INTERP, 0, do_hook},
     {(char *) "@icmd", icmd_sw, CA_IMMORTAL, 0,
      0, CS_TWO_ARG | CS_INTERP | CS_ARGV, 0, do_icmd},
+    {(char *) "@include", include_sw, CA_GBL_INTERP, CA_NO_CODE,
+     0, CS_TWO_ARG | CS_ARGV | CS_CMDARG | CS_NOINTERP | CS_STRIP_AROUND,
+     0, do_include},
     {(char *) "@kick", kick_sw, CA_WIZARD, 0,
      QUEUE_KICK, CS_ONE_ARG | CS_INTERP, 0, do_queue},
     {(char *) "@last", NULL, CA_NO_GUEST, 0,
@@ -1085,6 +1128,8 @@ CMDENT command_table[] =
      0, CS_ONE_ARG | CS_INTERP, 0, do_poor},
     {(char *) "@power", power_sw, CA_PUBLIC, 0,
      0, CS_TWO_ARG | CS_INTERP, 0, do_power},
+    {(char *) "@protect", protect_sw, CA_NO_GUEST | CA_NO_SLAVE | CA_NO_WANDER | CA_PLAYER, CA_NO_CODE,
+     0, CS_ONE_ARG | CS_INTERP, 0, do_protect},
     {(char *) "@program", NULL, CA_PUBLIC, CA_NO_CODE,
      0, CS_TWO_ARG | CS_INTERP, 0, do_program},
     {(char *) "@ps", ps_sw, 0, 0,
@@ -1124,20 +1169,19 @@ CMDENT command_table[] =
      CA_NO_SLAVE | CA_NO_GUEST, 0,
      0, CS_TWO_ARG, 0, do_set},
 #else
-    {(char *) "@set", NULL,
-     CA_NO_SLAVE | CA_NO_GUEST, 0,
-     0, CS_TWO_ARG, 0, do_set},
+    {(char *) "@set", NULL, CA_NO_SLAVE | CA_NO_GUEST, 0, 0, CS_TWO_ARG, 0, do_set},
 #endif
-    {(char *) "@shutdown", NULL, CA_PUBLIC, 0,
-     0, CS_ONE_ARG, 0, do_shutdown},
-    {(char *) "@site", site_sw, CA_IMMORTAL, 0,
-     0, CS_TWO_ARG, 0, do_site},
+    {(char *) "@shutdown", NULL, CA_PUBLIC, 0, 0, CS_ONE_ARG, 0, do_shutdown},
+    {(char *) "@site", site_sw, CA_IMMORTAL, 0, 0, CS_TWO_ARG, 0, do_site},
+    {(char *) "@skip", NULL, CA_NO_SLAVE | CA_NO_GUEST, CA_NO_CODE, 0, CS_TWO_ARG | CS_CMDARG, 0, do_skip},
+    {(char *) "@snapshot", snapshot_sw, CA_IMMORTAL, 0, 0, CS_TWO_ARG | CS_INTERP, 0, do_snapshot},
 #ifndef NO_SNOOP
     {(char *) "@snoop", snoop_sw, CA_PUBLIC | CA_IGNORE_ROYAL, 0,
      0, CS_TWO_ARG | CS_INTERP, 0, do_snoop},
 #endif
     {(char *) "@stats", stats_sw, 0, CA_NO_CODE,
      0, CS_ONE_ARG | CS_INTERP, 0, do_stats},
+    {(char *) "@sudo", NULL, CA_NO_SLAVE | CA_NO_GUEST, CA_NO_CODE, 0, CS_TWO_ARG | CS_CMDARG, 0, do_sudo},
     {(char *) "@sweep", sweep_sw, 0, 0,
      0, CS_ONE_ARG, 0, do_sweep},
     {(char *) "@switch", switch_sw, CA_GBL_INTERP, CA_NO_CODE,
@@ -1499,8 +1543,6 @@ NDECL(init_cmdtab)
 					   &mudstate.command_htab);
     prefix_cmds[']'] = (CMDENT *) hashfind((char *) "N",
                                            &mudstate.command_htab);
-    prefix_cmds['>'] = (CMDENT *) hashfind((char *) "C",
-					   &mudstate.command_htab);
     goto_cmdp = (CMDENT *) hashfind("goto", &mudstate.command_htab);
     DPOP; /* #25 */
 }
@@ -4240,7 +4282,7 @@ list_cmdaccess(dbref player, char *s_mask, int key)
 	if (check_access(player, cmdp->perms, cmdp->perms2, 0)) {
 	    if (!(cmdp->perms & CF_DARK)) {
                 if ( !key || (key && s_mask && *s_mask && quick_wild(s_mask, (char *)cmdp->cmdname)) ) {
-		   sprintf(buff, "%.31s:", cmdp->cmdname);
+		   sprintf(buff, "%.30s:", cmdp->cmdname);
 		      listset_nametab(player, access_nametab, access_nametab2,
 				   cmdp->perms, cmdp->perms2, buff, 1);
                 }
@@ -4262,7 +4304,7 @@ list_cmdaccess(dbref player, char *s_mask, int key)
 	    continue;
 	if (!(cmdp->perms & CF_DARK)) {
             if ( !key || (key && s_mask && *s_mask && quick_wild(s_mask, (char *)cmdp->cmdname)) ) {
-	       sprintf(buff, "%.31s:", cmdp->cmdname);
+	       sprintf(buff, "%.30s:", cmdp->cmdname);
 	       listset_nametab(player, access_nametab, access_nametab2,
 			       cmdp->perms, cmdp->perms2, buff, 1);
             }
@@ -5634,6 +5676,8 @@ list_options(dbref player)
 #ifdef OLD_SETQ
     notify(player, "setq()/setq_old() functionality changed at compile-time for TinyMUSH compatibility.");
 #endif
+    if ( mudconf.switch_search != 0 )
+       notify(player, "switch and switchng (nogarbage) functionality has been switched.");
 #ifndef NOEXTSUBS
 #ifdef TINY_SUB
     notify(player, "%c and %x substitution have been switched for TinyMUSH compatibility.");
@@ -6387,36 +6431,67 @@ static void
 list_vattrs(dbref player, char *s_mask, int wild_mtch)
 {
     VATTR *va;
-    int na, wna;
-    char *buff;
+    int na, wna, i_searchtype, i_flags;
+    char *buff, *buffptr;
+    NAMETAB  *ntptr;
 
     DPUSH; /* #48 */
 
-    wna = 0;
+    wna = i_searchtype = i_flags = 0;
     buff = alloc_lbuf("list_vattrs");
     if ( wild_mtch ) {
+       switch(*s_mask) {
+          case '|' : i_searchtype = 2;
+                     break;
+          case '&' : i_searchtype = 3;
+                     break;
+          default  : i_searchtype = 1;
+                     break;
+       }
+       if ( i_searchtype > 1 ) {
+          buffptr = s_mask;
+          while ( *buffptr ) {
+             *buffptr = ToLower(*buffptr);
+             buffptr++;
+          }
+          ntptr = attraccess_nametab;
+          while ( ntptr->name ) {
+             if ( God(player) || check_access(player, ntptr->perm, ntptr->perm2, 0) ) {
+                if ( *(s_mask+1) && strstr(s_mask+1, ntptr->name) ) {
+                   i_flags |= ntptr->flag;
+                }
+             }
+             ntptr++;
+          }
+       }
        notify(player, "--- User-Defined Attributes (wildmatched) ---");
-    } else
+    } else {
        notify(player, "--- User-Defined Attributes ---");
+    }
     for (va = vattr_first(), na = 0; va; va = vattr_next(va), na++) {
 	if (!(va->flags & AF_DELETED)) {
             if ( wild_mtch ) {
-                if (s_mask && *s_mask && !quick_wild(s_mask, (char *)va->name))
+                if ((i_searchtype == 1) && s_mask && *s_mask && !quick_wild(s_mask, (char *)va->name))
                    continue;
-                wna++;
+                else if ((i_searchtype == 2) && !(va->flags & i_flags) ) 
+                   continue;
+                else if ((i_searchtype == 3) && i_flags && (va->flags != (va->flags | i_flags)) )
+                   continue;
             } 
+            wna++;
 	    sprintf(buff, "%s(%d):", va->name, va->number);
 	    listset_nametab(player, attraccess_nametab, 0, va->flags, 0,
 			    buff, 1);
 	}
     }
 
-    if ( wild_mtch )
+    if ( wild_mtch ) {
        notify(player, unsafe_tprintf("%d attributes matched, %d attributes total, next=%d",
 			      wna, na, mudstate.attr_next));
-    else
+    } else {
        notify(player, unsafe_tprintf("%d attributes, next=%d",
 			      na, mudstate.attr_next));
+    }
     free_lbuf(buff);
 
     DPOP; /* #48 */
@@ -6922,11 +6997,18 @@ void
 do_list(dbref player, dbref cause, int extra, char *arg)
 {
     int flagvalue, p_val, i;
-    char *s_ptr, *s_ptr2, *tpr_buff, *tprp_buff;
+    char *s_ptr, *s_ptr2, *tpr_buff, *tprp_buff, *save_buff;
 
     DPUSH; /* #57 */
 
     s_ptr = s_ptr2 = (char *)NULL;
+    s_ptr = arg;
+    while ( *s_ptr && *s_ptr != ' ' )
+       s_ptr++; 
+    while ( *s_ptr && *s_ptr == ' ' )
+       s_ptr++; 
+    save_buff = alloc_lbuf("do_list_save");
+    sprintf(save_buff, "%.3900s", s_ptr);
     s_ptr = strtok(arg, " ");
     if ( s_ptr )
        s_ptr2 = strtok(NULL, " ");
@@ -7024,7 +7106,7 @@ do_list(dbref player, dbref cause, int extra, char *arg)
 	list_attraccess(player, s_ptr2, ((s_ptr2 && *s_ptr2) ? 1 : 0));
 	break;
     case LIST_VATTRS:
-	list_vattrs(player, s_ptr2, ((s_ptr2 && *s_ptr2) ? 1 : 0));
+	list_vattrs(player, save_buff, ((s_ptr2 && *s_ptr2) ? 1 : 0));
 	break;
     case LIST_LOGGING:
 	interp_nametab(player, logoptions_nametab, mudconf.log_options,
@@ -7076,6 +7158,7 @@ do_list(dbref player, dbref cause, int extra, char *arg)
 	display_nametab(player, list_names,
 			(char *) "Unknown option.  Use one of:", 1);
     }
+    free_lbuf(save_buff);
     DPOP; /* #57 */
 }
 
@@ -8010,7 +8093,7 @@ void do_program(dbref player, dbref cause, int key, char *name, char *command)
         memset(strprompt, 0, sizeof(strprompt));
         strncpy(strprompt, progatr, sizeof(strprompt)-1);
         free_lbuf(progatr);
-        if ( strprompt && *strprompt ) {
+        if ( *strprompt ) {
            if ( strcmp(strprompt, "NULL") != 0 ) {
               tprp_buff = tpr_buff;
               queue_string(d, safe_tprintf(tpr_buff, &tprp_buff, "%s%s%s \377\371", ANSI_HILITE, strprompt, ANSI_NORMAL));
@@ -8132,6 +8215,62 @@ void do_train(dbref player, dbref cause, int key, char *string, char *args[], in
    mudstate.train_cntr--;
 }
 
+void do_skip(dbref player, dbref cause, int key, char *s_boolian, char *s_command, char *args[], int nargs)
+{
+   char *retbuff;
+   int old_trainmode;
+
+   if ( !s_boolian || !*s_boolian || !s_command || !*s_command ) {
+      return;
+   }
+   retbuff = exec(player, cause, cause, EV_EVAL | EV_FCHECK, s_boolian, NULL, 0);
+   old_trainmode=mudstate.trainmode;
+   if ( *retbuff && (atoi(retbuff) == 0) ) {
+//    if ( desc_in_use == NULL ) {
+//       mudstate.trainmode = 1;
+//    }
+      process_command(player, cause, 1, s_command, args, nargs, 0);
+      mudstate.trainmode = old_trainmode;
+   }
+   free_lbuf(retbuff);
+
+}
+
+void do_sudo(dbref player, dbref cause, int key, char *s_player, char *s_command, char *args[], int nargs)
+{
+   dbref target;
+   char *retbuff;
+   int old_trainmode;
+
+   if ( mudstate.sudo_cntr >= 1 ) {
+      notify(player, "You can't nest @sudo.");
+      return;
+   }
+   if ( !s_command || !*s_command ) {
+      return;
+   }
+
+   if ( !s_player || !*s_player ) {
+      target = NOTHING;
+   } else {
+      retbuff = exec(player, cause, cause, EV_EVAL | EV_FCHECK, s_player, NULL, 0);
+      target = match_thing(player, retbuff);
+      free_lbuf(retbuff);
+   }
+   if ( !Good_chk(target) || !Controls(player, target) ) {
+      notify(player, "Permission denied.");
+      return;
+   }
+   mudstate.sudo_cntr++;
+   old_trainmode=mudstate.trainmode;
+// if ( desc_in_use == NULL ) {
+//    mudstate.trainmode = 1;
+// }
+   process_command(target, target, 1, s_command, args, nargs, 0);
+   mudstate.trainmode = old_trainmode;
+   mudstate.sudo_cntr--;
+}
+
 void do_noparsecmd(dbref player, dbref cause, int key, char *string, char *args[], int nargs)
 {
    dbref loc;
@@ -8232,6 +8371,122 @@ void show_hook(char *bf, char *bfptr, int key)
    if ( key & HOOK_FAIL )
       safe_str("fail ", bf, &bfptr);
    return;
+}
+
+void do_protect(dbref player, dbref cause, int key, char *name)
+{
+   int i_first;
+   dbref i_return, target;
+   char *s_protect_buff, *s_protect_ptr;
+   PROTECTNAME *bp;
+
+   if ( !key )
+      key=PROTECT_LIST;
+
+   if ( (key & PROTECT_DEL) && (!*name || !ok_player_name(name)) ) {
+      notify(player, "@protect with /del or /add requires valid name");
+      return;
+   }
+   s_protect_ptr = s_protect_buff=alloc_lbuf("do_protect");
+   switch (key ) {
+      case PROTECT_ADD:
+         i_return = (dbref) protectname_add(Name(player), player);
+         if ( i_return == 1 ) {
+            notify(player, unsafe_tprintf("You have reached the maximum of %d protected names.", mudconf.max_name_protect));
+         } else if ( i_return == 2 ) {
+            notify(player, "Your current name is already protected.");
+         } else {
+            notify(player, "Your current name has been added to your protect list.");
+            for ( bp=mudstate.protectname_head; bp; bp=bp->next ) {
+               if ( bp->i_name == player ) {
+                  if ( i_first )
+                     safe_chr('\t', s_protect_buff, &s_protect_ptr);
+                  i_first=1;
+                  safe_str(bp->name, s_protect_buff, &s_protect_ptr);
+               }
+            }
+            atr_add(player, A_PROTECTNAME, s_protect_buff, player, 0);
+         }
+         break;
+      case PROTECT_DEL:
+         i_return = protectname_remove(name, player);
+         if ( i_return == -1 ) {
+            notify(player, unsafe_tprintf("Delete what?  The name '%s' is not in the protected list.", name));
+         } else {
+            notify(player, unsafe_tprintf("You have successfully deleted '%s' from your protect list.", name));
+            for ( bp=mudstate.protectname_head; bp; bp=bp->next ) {
+               if ( bp->i_name == i_return ) {
+                  if ( i_first )
+                     safe_chr('\t', s_protect_buff, &s_protect_ptr);
+                  i_first=1;
+                  safe_str(bp->name, s_protect_buff, &s_protect_ptr);
+               }
+            }
+            if ( Good_chk(i_return) )
+               atr_add(i_return, A_PROTECTNAME, s_protect_buff, i_return, 0);
+         }
+         break;
+      case PROTECT_ALIAS:
+         i_return = protectname_alias(name, player);
+         if ( i_return == -1 ) {
+            notify(player, unsafe_tprintf("Alias what?  The name '%s' is not in the protected list.", name));
+         } else if ( i_return == -2 ) {
+            notify(player, unsafe_tprintf("The name '%s' is already marked as an alias.", name));
+         } else {
+            notify(player, unsafe_tprintf("You have successfully activated '%s' as an alias.", name));
+            for ( bp=mudstate.protectname_head; bp; bp=bp->next ) {
+               if ( bp->i_name == i_return ) {
+                  if ( i_first )
+                     safe_chr('\t', s_protect_buff, &s_protect_ptr);
+                  i_first=1;
+                  safe_str(bp->name, s_protect_buff, &s_protect_ptr);
+                  if ( bp->i_key )
+                     safe_str(":1", s_protect_buff, &s_protect_ptr);
+               }
+            }
+            if ( Good_chk(i_return) )
+               atr_add(i_return, A_PROTECTNAME, s_protect_buff, i_return, 0);
+         }
+         break;
+      case PROTECT_UNALIAS:
+         i_return = protectname_unalias(name, player);
+         if ( i_return == -1 ) {
+            notify(player, unsafe_tprintf("Un-Alias what?  The name '%s' is not in the protected list.", name));
+         } else if ( i_return == -2 ) {
+            notify(player, unsafe_tprintf("The name '%s' is already unmarked from being an alias.", name));
+         } else if ( i_return == -3 ) {
+            notify(player, unsafe_tprintf("The name '%s' is their current active name.  Can not unalias.", name));
+         } else {
+            notify(player, unsafe_tprintf("You have successfully de-activated '%s' as an alias.", name));
+            for ( bp=mudstate.protectname_head; bp; bp=bp->next ) {
+               if ( bp->i_name == i_return ) {
+                  if ( i_first )
+                     safe_chr('\t', s_protect_buff, &s_protect_ptr);
+                  i_first=1;
+                  safe_str(bp->name, s_protect_buff, &s_protect_ptr);
+                  if ( bp->i_key )
+                     safe_str(":1", s_protect_buff, &s_protect_ptr);
+               }
+            }
+            if ( Good_chk(i_return) )
+               atr_add(i_return, A_PROTECTNAME, s_protect_buff, i_return, 0);
+         }
+         break;
+      case PROTECT_LIST:
+         protectname_list(player, 0, NOTHING);
+         break;
+      case PROTECT_BYPLAYER:
+         if ( *name )
+            target = lookup_player(player, name, 0);
+         else
+            target = NOTHING;
+         protectname_list(player, 2, target);
+         break;
+      case PROTECT_SUMMARY:
+         protectname_list(player, 1, NOTHING);
+         break;
+   }
+   free_lbuf(s_protect_buff);
 }
 
 void do_hook(dbref player, dbref cause, int key, char *name) 
@@ -8501,14 +8756,19 @@ void do_cluster(dbref player, dbref cause, int key, char *name, char *args[], in
 {
    dbref thing, thing2, thing3, aowner;
    char *s_inbufptr, *s_instr, *s_tmpptr, *tpr_buff, *tprp_buff, *s_text,
-        *s_strtok, *s_strtokptr, *s_return, *s_tmpstr, *xargs[MAX_ARG];
+        *s_strtok, *s_strtokptr, *s_return, *s_tmpstr, *xargs[MAX_ARG], *s_foo;
    int anum, anum2, anum3, aflags, i_isequal, i_corrupted, i_temp, i_temp2, i_lowball, 
-        i_highball, i_first, nxargs, i;
+        i_highball, i_first, nxargs, i, i_clusterfunc, anum4, i_sideeffect,
+        i_nomatch, i_nowipe, i_wipecnt, i_totobjs;
    ATTR *attr;
+   time_t starttme, endtme;
+   double timechk;
 
    i_temp2 = i_temp = i_corrupted = i_isequal = i_lowball = i_highball = 0;
-   anum = anum2 = anum3 = NOTHING;
+   i_nomatch = i_nowipe = i_wipecnt = i_totobjs = 0;
+   anum = anum2 = anum3 = anum4 = NOTHING;
 
+   s_foo = NULL;
    if ( !name || !*name ) {
       notify(player, "@cluster requires an argument.");
       return;
@@ -8576,6 +8836,15 @@ void do_cluster(dbref player, dbref cause, int key, char *name, char *args[], in
    }
 
    tprp_buff = tpr_buff = alloc_lbuf("do_cluster_tprbuff");
+   i_clusterfunc = i_sideeffect = 0;
+   if ( key & CLUSTER_FUNC ) {
+      i_clusterfunc = 1;
+      key = key & ~CLUSTER_FUNC;
+   }
+   if ( key & SIDEEFFECT ) {
+      i_sideeffect = 1;
+      key = key & ~SIDEEFFECT;
+   }
    switch (key) {
       case CLUSTER_NEW:  
          if ( i_isequal ) {
@@ -8603,7 +8872,10 @@ void do_cluster(dbref player, dbref cause, int key, char *name, char *args[], in
          break;
       case CLUSTER_ADD:  
          if ( !i_isequal ) {
-            notify(player, "Invalid syntax for @cluster/add.  Use: @cluster/add <dbref>=<dbref>");
+            if ( i_sideeffect ) 
+               notify(player, "Invalid syntax for cluster_add().  Use: cluster_add(dbref,dbref)");
+            else
+               notify(player, "Invalid syntax for @cluster/add.  Use: @cluster/add <dbref>=<dbref>");
          } else if ( !Cluster(thing) ) {
             notify(player, "That object isn't a cluster.  Use @cluster/new to make one.");
          } else {
@@ -8676,6 +8948,15 @@ void do_cluster(dbref player, dbref cause, int key, char *name, char *args[], in
                            free_lbuf(s_instr);
                         }
                         attr = atr_str("_CLUSTER_ACTION");
+                        if ( attr ) {
+                           s_instr = atr_get(thing, attr->number, &aowner, &aflags);
+                           if ( *s_instr ) {
+                              atr_add_raw(thing2, attr->number, s_instr);
+                              atr_set_flags(thing2, attr->number, AF_INTERNAL|AF_GOD);
+                           }
+                           free_lbuf(s_instr);
+                        }
+                        attr = atr_str("_CLUSTER_ACTION_FUNC");
                         if ( attr ) {
                            s_instr = atr_get(thing, attr->number, &aowner, &aflags);
                            if ( *s_instr ) {
@@ -8765,6 +9046,10 @@ void do_cluster(dbref player, dbref cause, int key, char *name, char *args[], in
                      if ( attr ) {
                         atr_clr(thing, attr->number);
                      }
+                     attr = atr_str("_CLUSTER_ACTION_FUNC");
+                     if ( attr ) {
+                        atr_clr(thing, attr->number);
+                     }
                      free_lbuf(s_instr);
                      free_lbuf(s_tmpstr);
                   }
@@ -8792,6 +9077,13 @@ void do_cluster(dbref player, dbref cause, int key, char *name, char *args[], in
                free_lbuf(s_text);
             }
             attr = atr_str("_CLUSTER_ACTION");
+            if ( attr ) {
+               s_text = atr_get(thing, attr->number, &aowner, &aflags);
+               if ( *s_text )
+                  i_isequal++;
+               free_lbuf(s_text);
+            }
+            attr = atr_str("_CLUSTER_ACTION_FUNC");
             if ( attr ) {
                s_text = atr_get(thing, attr->number, &aowner, &aflags);
                if ( *s_text )
@@ -8868,12 +9160,33 @@ void do_cluster(dbref player, dbref cause, int key, char *name, char *args[], in
                            tprp_buff = tpr_buff;
                            notify(player, safe_tprintf(tpr_buff, &tprp_buff,
                                           "Threshold Action: %.3970s", s_instr));
+                           tprp_buff = tpr_buff;
+                           notify(player, safe_tprintf(tpr_buff, &tprp_buff,
+                                          "Action retrigger limit: %ds", mudconf.cluster_cap));
                         } else {
                            notify(player, "Threshold action has not been set.");
                         }
                         free_lbuf(s_instr);
                      } else {
                         notify(player, "Threshold action has not been set.");
+                     }
+                     attr = atr_str("_CLUSTER_ACTION_FUNC");
+                     if ( attr ) {
+                        s_instr = atr_get(thing, attr->number, &aowner, &aflags);
+                        if ( *s_instr ) {
+                           tprp_buff = tpr_buff;
+                           notify(player, safe_tprintf(tpr_buff, &tprp_buff,
+                                          "Threshold Action Function: %.3970s", s_instr));
+                           tprp_buff = tpr_buff;
+                           notify(player, safe_tprintf(tpr_buff, &tprp_buff,
+                                          "Action Function retrigger limit: %ds", mudconf.clusterfunc_cap));
+                           notify(player, "Note: The threshold function has priority over normal action.");
+                        } else {
+                           notify(player, "Threshold action function has not been set.");
+                        }
+                        free_lbuf(s_instr);
+                     } else {
+                        notify(player, "Threshold action function has not been set.");
                      }
                   }
                }
@@ -8910,6 +9223,10 @@ void do_cluster(dbref player, dbref cause, int key, char *name, char *args[], in
                         atr_clr(thing3, attr->number);
                      }
                      attr = atr_str("_CLUSTER_ACTION");
+                     if ( attr ) {
+                        atr_clr(thing3, attr->number);
+                     }
+                     attr = atr_str("_CLUSTER_ACTION_FUNC");
                      if ( attr ) {
                         atr_clr(thing3, attr->number);
                      }
@@ -8975,7 +9292,10 @@ void do_cluster(dbref player, dbref cause, int key, char *name, char *args[], in
          } else if ( !Cluster(thing) ) {
             notify(player, "That object isn't a cluster.  Use @cluster/new to make one.");
          } else {
-            anum2 = mkattr("_CLUSTER_ACTION");
+            if ( i_clusterfunc )
+               anum2 = mkattr("_CLUSTER_ACTION_FUNC");
+            else
+               anum2 = mkattr("_CLUSTER_ACTION");
             if ( anum2 < 0 ) {
                notify(player, "Unable to create action attribute for cluster!");
                break;
@@ -9031,7 +9351,10 @@ void do_cluster(dbref player, dbref cause, int key, char *name, char *args[], in
          } else if ( !Cluster(thing) ) {
             notify(player, "That object isn't a cluster.  Use @cluster/new to make one.");
          } else {
-            anum2 = mkattr("_CLUSTER_ACTION");
+            if ( i_clusterfunc )
+               anum2 = mkattr("_CLUSTER_ACTION_FUNC");
+            else
+               anum2 = mkattr("_CLUSTER_ACTION");
             if ( anum2 < 0 ) {
                notify(player, "Unable to create action attribute for cluster!");
                break;
@@ -9312,6 +9635,9 @@ void do_cluster(dbref player, dbref cause, int key, char *name, char *args[], in
             attr = atr_str("_CLUSTER_ACTION");
             if ( attr )
                atr_clr(thing, attr->number);
+            attr = atr_str("_CLUSTER_ACTION_FUNC");
+            if ( attr )
+               atr_clr(thing, attr->number);
             s_Toggles(thing, Toggles(thing) & ~TOG_CLUSTER);
             notify(player, safe_tprintf(tpr_buff, &tprp_buff, "Dbref #%d has been forcefully declustered.", thing));
             notify(player, "It is strongly recommended that you @cluster/repair the remaining items in the cluster.");
@@ -9364,6 +9690,10 @@ void do_cluster(dbref player, dbref cause, int key, char *name, char *args[], in
                            if ( attr ) {
                               atr_clr(thing3, attr->number);
                            }
+                           attr = atr_str("_CLUSTER_ACTION_FUNC");
+                           if ( attr ) {
+                              atr_clr(thing3, attr->number);
+                           }
                            i_corrupted++;
                         }
                      } else {
@@ -9409,6 +9739,13 @@ void do_cluster(dbref player, dbref cause, int key, char *name, char *args[], in
                } else {
                   s_instr = alloc_lbuf("cluster_tresh_action");
                }
+               attr = atr_str("_CLUSTER_ACTION_FUNC");
+               if ( attr ) {
+                  anum4 = attr->number;
+                  s_foo = atr_get(thing, anum4, &aowner, &aflags);
+               } else {
+                  s_foo = alloc_lbuf("cluster_tresh_action_func");
+               }
                s_strtok = strtok_r(s_text, " ", &s_strtokptr);
                i_isequal = 0;
                notify(player, "Step #3: Sanitizing thresholds and action lists.");
@@ -9432,11 +9769,21 @@ void do_cluster(dbref player, dbref cause, int key, char *name, char *args[], in
                      }
                      free_lbuf(s_tmpstr);
                   }
+                  if ( *s_foo ) {
+                     s_tmpstr = atr_get(thing3, anum4, &aowner, &aflags);
+                     if ( strcmp(s_tmpstr, s_foo) != 0 ) {
+                        atr_add_raw(thing3, anum4, s_foo);
+                        atr_set_flags(thing3, anum4, AF_INTERNAL|AF_GOD);
+                        i_isequal++;
+                     }
+                     free_lbuf(s_tmpstr);
+                  }
                   s_strtok = strtok_r(NULL, " ", &s_strtokptr);
                }
                free_lbuf(s_instr);
                free_lbuf(s_inbufptr);
                free_lbuf(s_text);
+               free_lbuf(s_foo);
                if ( i_lowball || i_corrupted || i_isequal) {
                   notify(player, safe_tprintf(tpr_buff, &tprp_buff, 
                                  "Cluster list has been repaired.  %d broken chains repaired, %d thresholds repaired, %d invalid cluster items yanked.", 
@@ -9582,8 +9929,26 @@ void do_cluster(dbref player, dbref cause, int key, char *name, char *args[], in
                s_strtok = strtok_r(s_text, " ", &s_strtokptr);
                i_lowball = 0;
                s_instr = alloc_lbuf("cluster_wipe");
+               endtme = time(NULL);
+               starttme = mudstate.chkcpu_stopper;
+               if ( mudconf.cputimechk < 10 )
+                  timechk = 10;
+               else if ( mudconf.cputimechk > 3600 )
+                  timechk = 3600;
+               else
+                  timechk = mudconf.cputimechk;
+               i_totobjs = 0;
                while ( s_strtok ) {
+                  endtme = time(NULL);
+                  if ( mudstate.chkcpu_toggle || ((endtme - starttme) > timechk) ) {
+                      mudstate.chkcpu_toggle = 1;
+                  }
+                  if ( mudstate.chkcpu_toggle ) {
+                     notify_quiet(player, "CPU: cluster wipe exceeded cpu limit.");
+                     break;
+                  }
                   i_lowball++;
+                  i_totobjs++;
                   thing3 = match_thing(player, s_strtok);
                   if ( Good_chk(thing3) && Cluster(thing3) ) {
                      if ( *s_return && (strchr(s_return, '/') != NULL) ) {
@@ -9592,11 +9957,20 @@ void do_cluster(dbref player, dbref cause, int key, char *name, char *args[], in
                      } else
                         do_wipe(thing3, thing3, (SIDEEFFECT), s_strtok);
                   }
+                  switch (mudstate.wipe_state) {
+                     case -1: i_nomatch++;
+                              break;
+                     case -2: i_nowipe++;
+                              break;
+                     default: i_wipecnt+=mudstate.wipe_state;
+                              break;
+                  }
                   s_strtok = strtok_r(NULL, " ", &s_strtokptr);
                }
                free_lbuf(s_instr);
                notify(player, safe_tprintf(tpr_buff, &tprp_buff, 
-                              "Cluster containing member #%d has been wiped.", thing));
+                              "Cluster wipe: %d total objects, %d no-match, %d safe, %d attributes wiped.", 
+                              i_totobjs, i_nomatch, i_nowipe, i_wipecnt));
             }
             free_lbuf(s_text);
          }
@@ -9618,6 +9992,136 @@ internal_logstatus( void )
       return(-1);
    else
       return((int) f_sb.st_size);
+}
+
+void
+do_blacklist(dbref player, dbref cause, int key, char *name) 
+{
+   char *s_buff, *s_buffptr;
+   int i_loop_chk, i_page, i_page_val, i_invalid;
+   struct in_addr in_tempaddr, in_tempaddr2;
+   FILE *f_in;
+   BLACKLIST *b_lst_ptr, *b_lst_ptr2;
+  
+   if ( !key ) {
+      s_buffptr = s_buff = alloc_lbuf("do_blacklistLBUF");
+      notify(player, safe_tprintf(s_buff, &s_buffptr, "@blacklist: There are currently %d entries in the blacklist.",
+                     mudstate.blacklist_cnt));
+      free_lbuf(s_buff);
+      return;
+   }
+ 
+   switch (key) {
+      case BLACKLIST_LIST:
+         i_page = i_page_val = 0;
+         if ( !mudstate.bl_list ) {
+            notify(player, "@blacklist: List is currently empty.");
+            break;
+         }
+         if ( name && *name )
+            i_page_val = atoi(name);
+         if ( (i_page_val < 0) || (i_page_val > ((mudstate.blacklist_cnt / 30) + 1)) ) {
+            notify(player, "@blacklist: Value specified must be a valid page value.");
+            break;
+         }
+         s_buffptr = s_buff = alloc_lbuf("do_blacklistLBUF");
+         i_loop_chk=0;
+         b_lst_ptr = mudstate.bl_list;
+         notify(player, "==============================================================================");
+         notify(player, "=                                 Black List                                 =");
+         notify(player, "==============================================================================");
+         while ( b_lst_ptr ) {
+            i_loop_chk++;
+            if ( i_loop_chk % 40 )
+               i_page++;
+            if ( !((i_page_val == 0) || (i_page_val == i_page)) ) {
+               b_lst_ptr = b_lst_ptr->next;
+               continue;
+            }
+            if ( (i_loop_chk % 4) != 0 ) {
+               if ( !*s_buff ) {
+                  sprintf(s_buff, "   %-18s", (char *)inet_ntoa(b_lst_ptr->site_addr));
+               } else {
+                  sprintf(s_buff, "%s %-18s", s_buff, (char *)inet_ntoa(b_lst_ptr->site_addr));
+               }
+            } else {
+               sprintf(s_buff, "%s %-18s", s_buff, (char *)inet_ntoa(b_lst_ptr->site_addr));
+               notify(player, s_buff);
+               memset(s_buff, '\0', LBUF_SIZE);
+            }
+            b_lst_ptr = b_lst_ptr->next;
+         } 
+         if ( (i_loop_chk % 4) != 0 ) {
+            notify(player, s_buff);
+         }
+         notify(player, "==============================================================================");
+         free_lbuf(s_buff);
+         break;
+      case BLACKLIST_LOAD:
+         if ( mudstate.blacklist_cnt > 0 ) {
+            notify(player, "@blacklist: Data is already loaded.  @blacklist/clear first.");
+            break;
+         }
+         if ( (f_in = fopen("blacklist.txt", "r")) == NULL ) {
+            notify(player, "@blacklist: Error opening blacklist.txt file for reading.");
+            break;
+         }
+         s_buff = alloc_sbuf("do_blacklist");
+         i_loop_chk = i_invalid = 0;
+         mudstate.bl_list = b_lst_ptr2 = NULL;
+         inet_aton((char *)"255.255.255.255", &in_tempaddr2);
+         while ( !feof(f_in) ) {
+            fgets(s_buff, SBUF_SIZE-2, f_in);
+            if ( feof(f_in) ) 
+               break;
+            if ( i_loop_chk > 100000 ) {
+               notify(player, "@blacklist: WARNING - blacklist.txt exceeds 100,000 entries. Rest ignored.");
+               break;
+            }
+            i_loop_chk++;
+            if ( !inet_aton(s_buff, &in_tempaddr) ) {
+               i_invalid++;
+               continue;
+            }
+            b_lst_ptr = (BLACKLIST *) malloc(sizeof(BLACKLIST)+1);
+            sprintf(b_lst_ptr->s_site, "%.19s", strip_returntab(s_buff,2));
+            b_lst_ptr->site_addr = in_tempaddr;
+            b_lst_ptr->mask_addr = in_tempaddr2;
+            b_lst_ptr->next = NULL;
+            if ( mudstate.bl_list == NULL) {
+               mudstate.bl_list = b_lst_ptr;
+            } else {
+               b_lst_ptr2 = mudstate.bl_list;
+               while ( b_lst_ptr2->next != NULL )
+                  b_lst_ptr2=b_lst_ptr2->next;
+               b_lst_ptr2->next = b_lst_ptr;
+            }
+            mudstate.blacklist_cnt++;
+         }
+         free_sbuf(s_buff);
+         s_buffptr = s_buff = alloc_lbuf("do_blacklistLBUF");
+         notify(player, safe_tprintf(s_buff, &s_buffptr, "Blacklist loaded.  %d entries total.  %d read in, %d ignored.", 
+                        i_loop_chk, mudstate.blacklist_cnt, i_invalid));
+         free_lbuf(s_buff);
+         fclose(f_in);
+         break;
+      case BLACKLIST_CLEAR:
+         i_loop_chk=0;
+         b_lst_ptr = mudstate.bl_list;
+         while ( b_lst_ptr ) {
+            b_lst_ptr2 = b_lst_ptr->next;
+            free(b_lst_ptr);
+            b_lst_ptr = b_lst_ptr2;
+            i_loop_chk++;
+         }
+         mudstate.bl_list = NULL;
+         s_buffptr = s_buff = alloc_lbuf("do_blacklistLBUF");
+         notify(player, safe_tprintf(s_buff, &s_buffptr, 
+                        "@blacklist: List has been cleared.  %d entries total removed.", mudstate.blacklist_cnt));
+         free_lbuf(s_buff);
+         mudstate.blacklist_cnt=0;
+         break;
+   }
 }
 
 void
@@ -9647,7 +10151,7 @@ do_logrotate(dbref player, dbref cause, int key) {
                  c_stval = (char *)" Gb";
                  div_val = 1024000000;
               }
-              notify(player, safe_tprintf(s_tprbuff, &s_tprpbuff, "Existing log file %s is taking up %0.0f%sytes",
+              notify(player, safe_tprintf(s_tprbuff, &s_tprpbuff, "Existing log file %s is taking up %0.3f%sytes",
                                           mudconf.logdb_name, (d_val/ div_val), c_stval ));
            } else {
               notify(player, safe_tprintf(s_tprbuff, &s_tprpbuff, "Unable to get block/size statistics of logfile %s",

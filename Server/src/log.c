@@ -280,15 +280,15 @@ void
 log_name(dbref target)
 {
     FILE *f_foo;
+    char *tp;
 
+    tp = NULL;
     if ( mudstate.f_logfile_name )
        f_foo = mudstate.f_logfile_name;
     else
        f_foo = stderr;
 
 #ifndef STANDALONE
-    char *tp;
-
     if ((mudconf.log_info & LOGOPT_FLAGS) != 0)
 	tp = unparse_object((dbref) GOD, target, 0);
     else

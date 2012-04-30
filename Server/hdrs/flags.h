@@ -171,6 +171,16 @@
 #define SPAMMONITOR	0x00080000	/* Monitor the target for spam */
 #define BLIND           0x00100000      /* Exits and locations snuff arrived/left */
 #define NOCODE		0x00200000	/* Players may not code */
+#define HAS_PROTECT	0x00400000	/* Player target has protect name data */
+/* 0x00800000 free */
+/* 0x01000000 free */
+/* 0x02000000 free */
+/* 0x04000000 free */
+/* 0x08000000 free */
+/* 0x10000000 free */
+/* 0x20000000 free */
+/* 0x40000000 free */
+/* 0x80000000 free */
 
 /* First word of toggles - Thorin 3/95 */
 
@@ -189,6 +199,7 @@
 #define TOG_MONITOR_AREG	0x00001000
 #define TOG_MONITOR_TIME        0x00002000
 #define TOG_CLUSTER		0x00004000	/* Object is part of a cluster */
+/* 0x00008000 free */
 #define TOG_NOANSI_PLAYER       0x00010000      /* Do not show ansi player names */
 #define TOG_NOANSI_THING        0x00020000      /* ... things */
 #define TOG_NOANSI_ROOM         0x00040000      /* ... rooms */
@@ -231,7 +242,10 @@
 #define TOG_HIDEIDLE		0x00100000	/* Allow wizards/immortals to hide their idle time */
 #define TOG_MORTALREALITY	0x00200000	/* Override the wiz_always_real setting */
 #define TOG_ACCENTS		0x00400000	/* Accents being displayed */
-#define TOG_PREMAILVALIDATE	0x00800000	/* Pee-Validate the mail send list before sending mail */
+#define TOG_PREMAILVALIDATE	0x00800000	/* Pre-Validate the mail send list before sending mail */
+#define TOG_SAFELOG             0x01000000	/* Allow 'clean logging' by the player */
+/* 0x02000000 free */
+/* 0x04000000 free */
 #define TOG_NODEFAULT		0x08000000	/* Allow target to inherit default attribs */
 #define TOG_EXFULLWIZATTR	0x10000000	/* Examine Wiz attribs */
 #ifdef ENH_LOGROOM
@@ -616,6 +630,7 @@ extern int	FDECL(has_aflag, (dbref, dbref, int, char *));
 #define LogRoom(x)      ((Toggles2(x) & TOG_LOGROOM) != 0)
 #define ExFullWizAttr(x) ((Toggles2(x) & TOG_EXFULLWIZATTR) != 0)
 #define TogNoDefault(x)	((Toggles2(x) & TOG_NODEFAULT) != 0)
+#define SafeLog(x)	((Toggles2(x) & TOG_SAFELOG) != 0)
 #define TogHideIdle(x)	((Toggles2(x) & TOG_HIDEIDLE) != 0)
 #define TogMortReal(x)	((Toggles2(x) & TOG_MORTALREALITY) != 0)
 #define Accents(x)	((Toggles2(x) & TOG_ACCENTS) != 0)
@@ -790,6 +805,7 @@ extern int	FDECL(has_aflag, (dbref, dbref, int, char *));
 #define H_Startup(x)    ((Flags(x) & HAS_STARTUP) != 0)
 #define H_Fwdlist(x)    ((Flags2(x) & HAS_FWDLIST) != 0)
 #define H_Listen(x)     ((Flags2(x) & HAS_LISTEN) != 0)
+#define H_Protect(x)	((Flags4(x) & HAS_PROTECT) != 0)
 
 #define s_Halted(x)     s_Flags((x), Flags(x) | HALT)
 #define s_Going(x)      s_Flags((x), Flags(x) | GOING)

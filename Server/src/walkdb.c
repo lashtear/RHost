@@ -777,15 +777,22 @@ dbref	thing, from, to;
 SEARCH	searchparm;
 FILE* master;
 
+        if ( mudconf.switch_search != 0 ) {
+           nogarb = 1;
+        }
+	if ( key & SEARCH_NOGARBAGE ) {
+           if ( mudconf.switch_search == 0 )
+	      nogarb = 1;
+           else
+	      nogarb = 0;
+	   key = key & ~SEARCH_NOGARBAGE;
+	}
+
 	if ((key != SRCH_SEARCH) && (mudconf.control_flags & CF_DBCHECK)) {
 		er_mark_disabled(player);
 		return;
 	}
 
-	if ( key & SEARCH_NOGARBAGE ) {
-	   nogarb = 1;
-	   key = key & ~SEARCH_NOGARBAGE;
-	}
 	evc = 0;
 	if (mudstate.evalnum < MAXEVLEVEL) {
           if (DePriv(player,player,DP_SEARCH_ANY,POWER7,NOTHING)) {

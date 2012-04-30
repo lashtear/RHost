@@ -24,7 +24,7 @@ BETAOPT=0
 DEFS="-Wall"
 DATE="$(date +"%m%d%y")"
 MORELIBS=""
-OPTIONS="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22"
+OPTIONS="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23"
 C_OPTIONS=$(echo $OPTIONS|wc -w)
 BOPTIONS="1 2 3"
 C_BOPTIONS=$(echo $BOPTIONS|wc -w)
@@ -108,7 +108,7 @@ echo "[${X[10]}] 10. ~/_ attributes     [${X[11]}] 11. Reality Levels     [${X[1
 echo "[${X[13]}] 13. Enhanced ANSI      [${X[14]}] 14. Marker Flags       [${X[15]}] 15. Bang support"
 echo "[${X[16]}] 16. Alternate WHO      [${X[17]}] 17. Old SETQ/SETR      [${X[18]}] 18. Secured Sideeffects"
 echo "[${X[19]}] 19. Disable DebugMon   [${X[20]}] 20. Disable SIGNALS    [${X[21]}] 21. Old Reality Lvls" 
-echo "[${X[22]}] 22. Read Mux Passwds"
+echo "[${X[22]}] 22. Read Mux Passwds   [${X[23]}] 23. Low-Mem Compile"
 echo "--------------------------- Beta/Unsupported Additions -----------------------"
 echo "[${XB[1]}] B1. 3rd Party MySQL    [${XB[2]}] B2. Door Support(Menu) [${XB[3]}] B3. 64 Char attribs"
 echo "------------------------------------------------------------------------------"
@@ -304,6 +304,11 @@ info() {
          echo "converted database.  If you change the password, it will use the"
          echo "Rhost specific password system and overwrite the SHA1 password."
          echo "You only need to use this if you are using a MUX2 converted flatfile."
+         ;;
+     23) echo "This is a low memory compile option.  If you are running under a"
+         echo "Virtual Machine, or have low available memory, the compile may"
+         echo "error out saying out of memory, unable to allocate memory, or"
+         echo "similiar messages.  Enabling this option should bypass this."
          ;;
      B*|b*) RUNBETA=1
          info $(echo $1|cut -c2-)
@@ -1068,7 +1073,7 @@ updatemakefile() {
    mv -f /tmp/$$CONF$$ ../src/Makefile 2>/dev/null
    rm -f /tmp/$$CONF$$ 2>/dev/null
 
-#  Let's do the door additions here
+#  Let's do the door/compiletime additions here
    if [ "${XB[2]}" = "X" ]
    then
       cat ../src/Makefile|sed "s/^#DR_DEF/DR_DEF/g" > /tmp/$$CONF$$
@@ -1105,6 +1110,16 @@ updatemakefile() {
       rm -f /tmp/$$CONF$$ 2>/dev/null
    fi
    echo "...completed."
+   # add CFLAGS for low memory
+   if [ "${X[23]}" = "X" ]
+   then
+      echo "Adding CFLAG option for low memory compile..."
+      cat ../src/Makefile|sed "s/^#CFLAG/CFLAG/g" > /tmp/$$CONF$$
+   else
+      cat ../src/Makefile|sed "s/^CFLAG/#CFLAG/g" > /tmp/$$CONF$$
+   fi
+   mv -f /tmp/$$CONF$$ ../src/Makefile 2>/dev/null
+   rm -f /tmp/$$CONF$$ 2>/dev/null
    echo "Updating the MORELIBS section of the Makefile now.  Please wait..."
    cat ../src/Makefile|sed "s/$(grep ^MORELIBS ../src/Makefile| \
        sed "s/\//\\\\\//g")/${MORELIBS}/g" > /tmp/$$CONF$$

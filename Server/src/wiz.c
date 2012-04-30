@@ -5,6 +5,8 @@
 char *strtok_r(char *, const char *, char **);
 #endif
 
+#include <dirent.h>
+#include <sys/dir.h>
 #include "copyright.h"
 #include "autoconf.h"
 
@@ -20,6 +22,10 @@ char *strtok_r(char *, const char *, char **);
 #include "alloc.h"
 #include "attrs.h"
 #include "door.h"
+
+extern void remote_write_obj(FILE *, dbref, int, int);
+extern int remote_read_obj(FILE *, dbref, int, int, int*);
+extern int remote_read_sanitize(FILE *, dbref, int, int);
 
 void do_teleport(dbref player, dbref cause, int key, char *slist, 
 		 char *dlist[], int nargs)
@@ -367,7 +373,7 @@ dbref	victim;
 void do_turtle(dbref player, dbref cause, int key, char *turtle, char *newowner)
 {
 dbref	victim, recipient, loc, aowner;
-char	*buf, *s_retval, *s_retplayer, *s_retvalbuff;
+char	*buf, *s_retval, *s_retplayer, *s_retvalbuff, *s_strtok, *s_strtokr;
 int	count, aflags;
 
 	init_match(player, turtle, TYPE_PLAYER);
@@ -470,6 +476,17 @@ int	count, aflags;
 	delete_player_name(victim, buf);
 	free_lbuf(buf);
 
+        if ( H_Protect(victim) ) {
+           buf = atr_pget(victim, A_PROTECTNAME, &aowner, &aflags);
+           s_strtok = strtok_r(buf, "\t", &s_strtokr);
+           while ( s_strtok ) {
+              (void) protectname_remove(s_strtok, GOD);
+              s_strtok = strtok_r(NULL, "\t", &s_strtokr);
+           }
+           free_lbuf(buf);
+           atr_clr(victim, A_PROTECTNAME);
+        }
+
         if ( *s_retval )
 	   count = boot_off(victim,
 		   unsafe_tprintf("You have been turned into a %.100s!", s_retval));
@@ -487,7 +504,7 @@ int	count, aflags;
 void do_toad(dbref player, dbref cause, int key, char *toad, char *newowner)
 {
 dbref	victim, recipient, loc, aowner;
-char	*buf;
+char	*buf, *s_strtok, *s_strtokr;
 int	count, aflags;
 
 	init_match(player, toad, TYPE_PLAYER);
@@ -565,6 +582,18 @@ int	count, aflags;
 	buf = atr_pget(victim, A_ALIAS, &aowner, &aflags);
 	delete_player_name(victim, buf);
 	free_lbuf(buf);
+
+        /* Zap protect name lists */
+        if ( H_Protect(victim) ) {
+	   buf = atr_pget(victim, A_PROTECTNAME, &aowner, &aflags);
+           s_strtok = strtok_r(buf, "\t", &s_strtokr);
+           while ( s_strtok ) {
+              (void) protectname_remove(s_strtok, GOD);
+              s_strtok = strtok_r(NULL, "\t", &s_strtokr);
+           }
+           free_lbuf(buf);
+           atr_clr(victim, A_PROTECTNAME);
+        }
 
 	count = boot_off(victim,
 		(char *)"You have been turned into a slimy toad!");
@@ -2101,4 +2130,201 @@ void do_site(dbref player, dbref cause, int key, char *buff1, char *buff2)
     notify(player,"Entry removed from site list");
   else
     notify(player,"Entry not found in site list");
+}
+
+static int file_select(const struct direct *entry)
+{
+   if ( strstr(entry->d_name, ".img") != NULL ) 
+      return(1);
+   else
+      return(0);
+}
+
+void do_snapshot(dbref player, dbref cause, int key, char *buff1, char *buff2)
+{
+   struct dirent **namelist;
+   char *tpr_buff, *tprp_buff, *s_mbname, *s_pt;
+   FILE *f_snap;
+   int i_dirnums, i_flag, i_count;
+   dbref thing;
+
+   i_flag = i_count = 0;
+   switch (key ) {
+      case SNAPSHOT_NOOPT:
+      case SNAPSHOT_LIST: 
+         i_dirnums = scandir(mudconf.image_dir, &namelist, file_select, alphasort);
+         if (i_dirnums < 0) {
+            tprp_buff = tpr_buff = alloc_lbuf("do_snapshot");
+            notify(player, safe_tprintf(tpr_buff, &tprp_buff, "Error scanning image directory %s.", mudconf.image_dir));
+            free_lbuf(tpr_buff);
+            return;
+         } else {
+            notify(player, "-------------------- dir listing -------------------");
+            tprp_buff = tpr_buff = alloc_lbuf("do_snapshot");
+            if ( i_dirnums == 0 ) {
+               notify(player, safe_tprintf(tpr_buff, &tprp_buff, "No files found in image directory %s.", mudconf.image_dir));
+            }
+            while(i_dirnums--) {
+               tprp_buff = tpr_buff;
+               notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%s",
+                                           namelist[i_dirnums]->d_name));
+               free(namelist[i_dirnums]);
+            }
+            notify(player, "-------------------- end listing -------------------");
+            free(namelist);
+            free_lbuf(tpr_buff);
+         }
+      break;
+      case SNAPSHOT_UNLOAD:
+         init_match(player, buff1, NOTYPE);
+         match_everything(0);
+         thing = noisy_match_result();
+         if ( !Good_chk(thing) ) {
+            notify(player, "Invalid dbref# specified for snapshot.");
+            return;
+         }
+         s_mbname = alloc_mbuf("do_snapshot");
+         if ( !buff2 || !*buff2 ) {
+            sprintf(s_mbname, "%s/%d.img", mudconf.image_dir, thing);
+         } else {
+             s_pt = buff2;
+             i_count = 0;
+             while ( *s_pt ) {
+                if ( index("/~$%&!\\?*", *s_pt ) ) {
+                   i_count=1;
+                   break;
+                }
+                s_pt++;
+            }
+            if ( i_count ) {
+               notify(player, "Invalid characters specified in filename.");
+               free_mbuf(s_mbname);
+               return;
+            } else {
+               sprintf(s_mbname, "%s/%d_%.60s.img", mudconf.image_dir, thing, strip_all_special(buff2));
+            }
+         }
+         if ( (f_snap = fopen(s_mbname, "r")) != NULL ) {
+            notify(player, "Filename already exists.  Please delete it first.");
+            fclose(f_snap);
+            free_mbuf(s_mbname);
+            return;
+         }
+         if ( (f_snap = fopen(s_mbname, "w")) == NULL ) {
+            notify(player, "Unable to open filename specified for snapshot.");
+            free_mbuf(s_mbname);
+            return;
+         }
+         tprp_buff = tpr_buff = alloc_lbuf("do_snapshot");
+         notify(player, safe_tprintf(tpr_buff, &tprp_buff, "@snapshot: Writing image file %s...", s_mbname));
+         remote_write_obj(f_snap, thing, F_MUSH, OUTPUT_VERSION | UNLOAD_OUTFLAGS);
+         fclose(f_snap);
+         free_mbuf(s_mbname);
+         free_lbuf(tpr_buff);
+         notify(player, "@snapshot: Completed.");
+      break;
+      case SNAPSHOT_DEL:
+         s_mbname = alloc_mbuf("do_snapshot");
+         if ( !buff1 || !*buff1 ) {
+            notify(player, "Please specify a file to delete.");
+            free_mbuf(s_mbname);
+            return;
+         } else if ( strstr(buff1, ".img") != NULL ) {
+            notify(player, "Please do not specify the .img extension.");
+            free_mbuf(s_mbname);
+            return;
+         } else {
+            sprintf(s_mbname, "%s/%.80s.img", mudconf.image_dir, strip_all_special(buff1));
+         }
+         if ( (f_snap = fopen(s_mbname, "r")) == NULL ) {
+            notify(player, "Filename specified not found.");
+            free_mbuf(s_mbname);
+            return;
+         }
+         fclose(f_snap);
+         remove(s_mbname);
+         free_mbuf(s_mbname);
+         notify(player, "@snapshot: Snapshot file has been deleted.");
+      break;
+      case SNAPSHOT_LOAD:
+         init_match(player, buff1, NOTYPE);
+         match_everything(0);
+         thing = noisy_match_result();
+         if ( !Good_chk(thing) ) {
+            notify(player, "Invalid dbref# specified for snapshot.");
+            return;
+         }
+         s_mbname = alloc_mbuf("do_snapshot");
+         sprintf(s_mbname, "%s/%.70s.img", mudconf.image_dir, strip_all_special(buff2));
+         if ( (f_snap = fopen(s_mbname, "r")) == NULL ) {
+            notify(player, "Filename specified not found.");
+            free_mbuf(s_mbname);
+            return;
+         }
+         tprp_buff = tpr_buff = alloc_lbuf("do_snapshot");
+         notify(player, safe_tprintf(tpr_buff, &tprp_buff, "@snapshot: Reading image file %s onto #%d...", s_mbname, thing));
+         i_dirnums = remote_read_obj(f_snap, thing, F_MUSH, OUTPUT_VERSION | UNLOAD_OUTFLAGS, &i_count);
+         fclose(f_snap);
+         switch (i_dirnums) {
+            case 0: 
+               tprp_buff = tpr_buff;
+               notify(player, safe_tprintf(tpr_buff, &tprp_buff, "@snapshot: Completed. (%d new attributes hashed)", i_count));
+               break;
+            case 1:
+               notify(player, "@snapshot: Source and destination types do not match.  Aborting.");
+               break;
+            case 2:
+               notify(player, "@snapshot: Error reading attribute table.  Object may not be accurate!!!");
+               break;
+            case 3:
+               notify(player, "@snapshot: Error reading file.  Unrecognized format or file is corrupted.");
+               free_mbuf(s_mbname);
+               free_lbuf(tpr_buff);
+               return;
+               break;
+         }
+         /* Fix up the ol object - it's probably corrupted if missmatched attributes */
+         i_dirnums = -1;
+         while ( i_dirnums == -1 ) {
+            i_dirnums = atrcint(player, thing, 1);
+            if ( i_dirnums == -1 )
+               i_flag++;
+         }
+         if ( i_flag ) {
+            tprp_buff = tpr_buff;
+            notify(player, safe_tprintf(tpr_buff, &tprp_buff, 
+                                 "Notice: %d total attributes were undefined and allocated on object load.", i_flag));
+         }
+         free_mbuf(s_mbname);
+         free_lbuf(tpr_buff);
+      break;
+      case SNAPSHOT_VERIFY:
+         s_mbname = alloc_mbuf("do_snapshot_verify");
+         if ( !buff1 || !*buff1 ) {
+            notify(player, "Please specify a file to verify.");
+            free_mbuf(s_mbname);
+            return;
+         } else if ( strstr(buff1, ".img") != NULL ) {
+            notify(player, "Please do not specify the .img extension.");
+            free_mbuf(s_mbname);
+            return;
+         } else {
+            sprintf(s_mbname, "%s/%.80s.img", mudconf.image_dir, strip_all_special(buff1));
+         }
+         if ( (f_snap = fopen(s_mbname, "r")) == NULL ) {
+            notify(player, "Filename specified not found.");
+            free_mbuf(s_mbname);
+            return;
+         }
+         tprp_buff = tpr_buff = alloc_lbuf("do_snapshot_verify");
+         if ( remote_read_sanitize(f_snap, NOTHING, F_MUSH, OUTPUT_VERSION | UNLOAD_OUTFLAGS) != 0 ) {
+            notify(player, safe_tprintf(tpr_buff, &tprp_buff, "Filename %s is a corrupt image file.", s_mbname));
+         } else {
+            notify(player, safe_tprintf(tpr_buff, &tprp_buff, "Filename %s has been verified clean.", s_mbname));
+         }
+         fclose(f_snap);
+         free_mbuf(s_mbname);
+         free_lbuf(tpr_buff);
+      break;
+   }   
 }

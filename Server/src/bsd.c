@@ -761,6 +761,24 @@ new_connection(int sock)
     memset(tchbuff, 0, sizeof(tchbuff));
     cur_port =  ntohs(addr.sin_port);
 
+/* DO BLACKLIST CHECK HERE */
+    if ( blacklist_check(addr.sin_addr) ) {
+       STARTLOG(LOG_NET | LOG_SECURITY, "NET", "BLACK");
+          buff = alloc_mbuf("new_connection.LOG.badsite");
+          sprintf(buff, "[%d/%s] Connection refused - Blacklisted.  (Remote port %d)",
+                  newsock, inet_ntoa(addr.sin_addr), cur_port);
+          log_text(buff);
+          broadcast_monitor(NOTHING, MF_CONN, "SITE IN BLACKLIST", NULL,
+                            inet_ntoa(addr.sin_addr), newsock, 0, cur_port, NULL);
+          free_mbuf(buff);
+       ENDLOG
+       fcache_rawdump(newsock, FC_CONN_SITE);
+       shutdown(newsock, 2);
+       close(newsock);
+       errno = 0;
+       RETURN(0);
+    }
+
 /* Ok, check all the sites that match this one.  If it does, don't allow it if > max */
     maxsitecon = 0;
     maxtsitecon = 0;
@@ -1851,13 +1869,13 @@ sighandler(int sig)
 #endif /* HAVE__SYS_SIGLIST */
 #endif /* HAVE_SYS_SIGLIST */
 
-    char buff[32];
+    char buff[32], *s_crontmp, *s_crontmpwlk;
     char *flatfilename;
-    FILE *f;
+    FILE *f, *f_crontmp;
     char *ptr2;
-    int aflags;
+    int aflags, i_cronchk, i_croncnt;
     ATTR *ptr;
-    dbref player, aowner;
+    dbref player, aowner, i_crontmp;
     sigset_t sigs;
 
 #ifdef HAVE_UNION_WAIT
@@ -1877,6 +1895,9 @@ sighandler(int sig)
        VOIDRETURN; /* #23 */
 #endif
 
+    i_cronchk = i_croncnt = 0;
+    i_crontmp = NOTHING;
+
     switch (sig) {
     case SIGALRM:		/* Timer */
 	mudstate.alarm_triggered = 1;
@@ -1894,6 +1915,87 @@ sighandler(int sig)
     case SIGUSR1:   /* Perform a @reboot. */
           log_signal(signames[sig], sig);
           /* User configured signal handling might happen. */
+          if ( mudconf.signal_crontab ) {
+             if ( (f_crontmp = fopen("cron/rhost.cron", "r")) != NULL ) {
+                i_cronchk = 1;
+                if ( feof(f_crontmp) ) {
+                   i_cronchk = 0;
+                } else {
+                   s_crontmp = alloc_lbuf("do_sigusr1_cron");
+                   fgets(s_crontmp, LBUF_SIZE - 1, f_crontmp);
+                   if ( *s_crontmp ) {
+                      if ( (*s_crontmp == '#') && isdigit(*(s_crontmp+1))) {
+                         i_crontmp = atoi(s_crontmp+1);
+                      } 
+                      if ( i_crontmp == NOTHING ) {
+                         s_crontmpwlk = s_crontmp;
+                         while ( *s_crontmpwlk ) {
+                            if ( (*s_crontmpwlk == '\r') || (*s_crontmpwlk == '\n') ) {
+                               *s_crontmpwlk = '\0';
+                               break;
+                            }
+                            s_crontmpwlk++;
+                         }
+                         i_crontmp = lookup_player(NOTHING, s_crontmp, 0);
+                      }
+                      if ( !Good_chk(i_crontmp) ) {
+                         i_cronchk = 0;
+                      } else {
+                         if ( feof(f_crontmp) ) {
+                            i_cronchk = 0;
+                         } else {
+                            fgets(s_crontmp, LBUF_SIZE - 1, f_crontmp);
+                            while ( !feof(f_crontmp) ) {
+                               s_crontmpwlk = s_crontmp;
+                               while ( *s_crontmpwlk ) {
+                                  if ( !isprint(*s_crontmpwlk) && !(*s_crontmpwlk == '\n') &&
+                                       !(*s_crontmpwlk == '\r') ) {
+                                     i_cronchk = 0;
+                                     break;
+                                  }
+                                  s_crontmpwlk++;
+                               }
+                               if ( i_cronchk == 0 )
+                                  break;
+                               if ( i_croncnt < 20 ) {
+                                  wait_que(i_crontmp, i_crontmp, 0, NOTHING, s_crontmp, (char **)NULL, 0,
+                                         mudstate.global_regs, mudstate.global_regsname);
+                               } else {
+                                  STARTLOG(LOG_ALWAYS, "WIZ", "CRON")
+                                     log_text((char *) "Signal USR1 received with signal_crontab: Entries after the 20th command line ignored.");
+                                  ENDLOG
+                                  break;
+                               }
+                               fgets(s_crontmp, LBUF_SIZE -1, f_crontmp);
+                               i_croncnt++;
+                            }
+                         }
+                      }
+                   } else {
+                      i_cronchk = 0;
+                   }
+                   if ( i_cronchk == 0 ) {
+                      STARTLOG(LOG_ALWAYS, "WIZ", "CRON")
+                         log_text((char *) "Signal USR1 received with signal_crontab yet crontab file was corrupt.");
+                      ENDLOG
+                   } else {
+                      STARTLOG(LOG_ALWAYS, "WIZ", "CRON")
+                         sprintf(s_crontmp, "Signal USR1 crontab entry executed.  %d total lines processed.", i_croncnt);
+                         log_text(s_crontmp);
+                      ENDLOG
+                   }
+                   free_lbuf(s_crontmp);
+                }
+                fclose(f_crontmp);
+             } else {
+                STARTLOG(LOG_ALWAYS, "WIZ", "CRON")
+                   log_text((char *) "Signal USR1 received with signal_crontab enabled but no crontab file found.");
+                ENDLOG
+             }
+             sigfillset(&sigs);
+             sigprocmask(SIG_UNBLOCK, &sigs, NULL);
+             break;
+          } 
           if ( Good_chk(mudconf.signal_object) ) {
              ptr = atr_str("SIG_USR1");
              if ( ptr ) {

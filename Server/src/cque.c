@@ -99,6 +99,7 @@ void execute_entry(BQUE *queue)
 
 		command = queue->comm;
 		mudstate.breakst = 0;
+                mudstate.includecnt = 0;
                 mudstate.force_halt =0;
 		while (command && !mudstate.breakst) {
 		    cp = parse_to(&command, ';', 0);
@@ -2191,7 +2192,7 @@ fun_do_chk(BQUE *tmp, dbref player, dbref *player_targ, dbref *obj_targ)
    if (tmp->player == NOTHING) {
       return 0;
    } else if ( (*player_targ == NOTHING) && (*obj_targ == NOTHING) ) {
-      if ( Immortal(player) || Controls(player,Owner(tmp->player) ) ||
+      if ( Immortal(player) || Controls(player,Owner(tmp->player) ) || (player == tmp->player) ||
            HasPriv(player,NOTHING,POWER_SEE_QUEUE_ALL, POWER3, POWER_LEVEL_NA) ||
            HasPriv(player,Owner(tmp->player),POWER_SEE_QUEUE, POWER3, NOTHING) ) {
          return 1;
@@ -2202,6 +2203,8 @@ fun_do_chk(BQUE *tmp, dbref player, dbref *player_targ, dbref *obj_targ)
       if ( Good_obj(*obj_targ) && Controls(player, *obj_targ) && Builder(player) ) {
          *player_targ = NOTHING;
       }
+      if ( *player_targ == *obj_targ )
+         *player_targ = NOTHING;
       return que_want(tmp, *player_targ, *obj_targ);
    }
    return 0;
@@ -2214,6 +2217,7 @@ fun_do_display(BQUE *tmp, dbref player, dbref player_targ, dbref obj_targ, int k
    static char i_buffering[SBUF_SIZE];
 
    do_sep = 0;
+   memset(i_buffering, '\0', SBUF_SIZE);
    if ( first )
       safe_chr(sep, buff, bufcx);
    if ( (key & 1) || !key ) {
@@ -2266,16 +2270,25 @@ show_que_func(dbref player, char *target, int key, char s_type, char *buff, char
 {
    BQUE *tmp;
    dbref player_targ, obj_targ;
-   int first;
+   int first, i_pid;
 
+   i_pid = -1;
    if ( target && *target ) {
-      player_targ = Owner(player);
-      init_match(player, target, NOTYPE);
-      match_everything(MAT_EXIT_PARENTS);
-      obj_targ = match_result();
-      if (!Good_chk(obj_targ) || (!Controls(player, obj_targ) &&
-           !HasPriv(player, obj_targ, POWER_SEE_QUEUE, POWER3, NOTHING))) {
-         return;
+      if ( is_integer(target) ) {
+         player_targ = obj_targ = NOTHING;
+         i_pid = atoi(target);
+         if ( i_pid <= 0 )
+            i_pid = -1;
+      } else {
+//       player_targ = Owner(player);
+         player_targ = player;
+         init_match(player, target, NOTYPE);
+         match_everything(MAT_EXIT_PARENTS);
+         obj_targ = match_result();
+         if (!Good_chk(obj_targ) || (!Controls(player, obj_targ) &&
+              !HasPriv(player, obj_targ, POWER_SEE_QUEUE, POWER3, NOTHING))) {
+            return;
+         }
       }
    } else {
       player_targ = obj_targ = NOTHING;
@@ -2285,6 +2298,8 @@ show_que_func(dbref player, char *target, int key, char s_type, char *buff, char
       for ( tmp = mudstate.qfirst; tmp; tmp = tmp->next ) {
          if ( !fun_do_chk(tmp, player, &player_targ, &obj_targ) ) 
             continue;
+         if ( (i_pid > 0) && (i_pid != tmp->pid) )
+            continue;
          fun_do_display(tmp, player, player_targ, obj_targ, key, first, buff, bufcx, sep);
          first = 1;
       }
@@ -2292,6 +2307,8 @@ show_que_func(dbref player, char *target, int key, char s_type, char *buff, char
    if ( s_type == 'o' ) {
       for ( tmp = mudstate.qlfirst; tmp; tmp = tmp->next ) {
          if ( !fun_do_chk(tmp, player, &player_targ, &obj_targ) ) 
+            continue;
+         if ( (i_pid > 0) && (i_pid != tmp->pid) )
             continue;
          fun_do_display(tmp, player, player_targ, obj_targ, key, first, buff, bufcx, sep);
          first = 1;
@@ -2301,6 +2318,8 @@ show_que_func(dbref player, char *target, int key, char s_type, char *buff, char
       for ( tmp = mudstate.qwait; tmp; tmp = tmp->next ) {
          if ( !fun_do_chk(tmp, player, &player_targ, &obj_targ) ) 
             continue;
+         if ( (i_pid > 0) && (i_pid != tmp->pid) )
+            continue;
          fun_do_display(tmp, player, player_targ, obj_targ, key, first, buff, bufcx, sep);
          first = 1;
       }
@@ -2308,6 +2327,8 @@ show_que_func(dbref player, char *target, int key, char s_type, char *buff, char
    if ( (s_type == 'q') || (s_type == 's') ) {
       for ( tmp = mudstate.qsemfirst; tmp; tmp = tmp->next ) {
          if ( !fun_do_chk(tmp, player, &player_targ, &obj_targ) ) 
+            continue;
+         if ( (i_pid > 0) && (i_pid != tmp->pid) )
             continue;
          fun_do_display(tmp, player, player_targ, obj_targ, key, first, buff, bufcx, sep);
          first = 1;
@@ -2334,7 +2355,7 @@ show_que(dbref player, int key, BQUE * queue, int *qtot,
 	if (tmp->player == NOTHING)
 	  check = 0;
 	else if ((player_targ == NOTHING) && (obj_targ == NOTHING)) {
-	  if (Immortal(player) || Controls(player,Owner(tmp->player)) || 
+	  if (Immortal(player) || Controls(player,Owner(tmp->player)) ||  (player == tmp->player) ||
 		HasPriv(player,NOTHING,POWER_SEE_QUEUE_ALL, POWER3, POWER_LEVEL_NA) ||
 		HasPriv(player,Owner(tmp->player),POWER_SEE_QUEUE, POWER3, NOTHING))
 	    check = 1;

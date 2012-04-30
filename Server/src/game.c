@@ -201,8 +201,9 @@ atr_match1(dbref thing, dbref parent, dbref player, char type,
 	   int hash_insert, int dpcheck, int cmast)
 {
     dbref aowner, thing2;
-    int match, attr, aflags, i, ck, ck2, ck3, loc, attrib2, x, i_cpuslam, do_brk, aflags_set, oldchk, chkwild;
-    char *buff, *s, *as, *s_uselock, *atext, *result;
+    int match, attr, aflags, i, ck, ck2, ck3, loc, attrib2, x, i_cpuslam, 
+        do_brk, aflags_set, oldchk, chkwild, i_inparen;
+    char *buff, *s, *s2, *s3, *as, *s_uselock, *atext, *result, buff2[LBUF_SIZE+1];
     char *args[10], *savereg[MAX_GLOBAL_REGS], *pt, *cpuslam, *cputext, *cpulbuf;
     ATTR *ap, *ap2;
 
@@ -210,7 +211,7 @@ atr_match1(dbref thing, dbref parent, dbref player, char type,
 
     /* See if we can do it.  Silently fail if we can't. */
 
-    ck3 = ck2 = chkwild = 0;
+    ck3 = ck2 = chkwild = i_inparen = 0;
     oldchk = mudstate.chkcpu_toggle;
     if (!could_doit(player, parent, A_LUSE,1)) {
         if ( mudstate.chkcpu_toggle && !oldchk ) {
@@ -295,10 +296,26 @@ atr_match1(dbref thing, dbref parent, dbref player, char type,
 	    continue;
 	*s++ = 0;
         /* Allow attributes set NO_PARSE to pass in what player types verbatum */
-        if ( PCRE_EXEC && ((aflags & AF_REGEXP) || (ap->flags & AF_REGEXP)) )
-           chkwild = regexp_wild_match(buff + 1, 
+        if ( PCRE_EXEC && ((aflags & AF_REGEXP) || (ap->flags & AF_REGEXP)) ) {
+           s3 = buff + 1;
+           memset(buff2, '\0', sizeof(buff2));
+           s2 = buff2;
+           while ( *s3 ) {
+              if ( *s3 == '(' ) 
+                 i_inparen++;
+              if ( *s3 == ')' ) 
+                 i_inparen--;
+              if ( (*s3 == '\\') && (i_inparen > 0) ) {
+                 s3++;
+              }
+              *s2 = *s3;
+              if ( *s3 )
+                 s3++;
+              s2++;
+           }
+           chkwild = regexp_wild_match(buff2,
                                 ((aflags & AF_NOPARSE) ? mudstate.last_command : str), args, 10, 1);
-        else
+        } else
            chkwild = wild_match(buff + 1, 
                                 ((aflags & AF_NOPARSE) ? mudstate.last_command : str), args, 10, 0);
 	if ( chkwild ) {
@@ -573,6 +590,9 @@ notify_check(dbref target, dbref sender, const char *msg, int port, int key, int
 
     DPUSH; /* #75 */
 
+    for (i=0; i<10; i++ )
+       args[i] = NULL;
+
     msg_ns2 = NULL;
     cpulbuf = NULL;
     /* If speaker is invalid or message is empty, just exit */
@@ -772,11 +792,9 @@ notify_check(dbref target, dbref sender, const char *msg, int port, int key, int
 	}
 	/* Get rid of match arguments. We don't need them anymore */
 
-	if (pass_listen) {
-	    for (i = 0; i < 10; i++)
-		if (args[i] != NULL)
-		    free_lbuf(args[i]);
-	}
+	for (i = 0; i < 10; i++)
+           if (args[i] != NULL)
+              free_lbuf(args[i]);
 	/* Process ^-listens if for me, MONITOR, and we pass USElock */
 
 	if ((key & MSG_ME) && pass_uselock && (sender != target) &&
@@ -1684,14 +1702,15 @@ static void
 NDECL(process_preload)
 {
     dbref thing, parent, aowner;
-    int aflags, lev, i;
-    char *tstr;
+    int aflags, lev, i, i_matchint;
+    char *tstr, *tstr2, *s_strtok, *s_strtokr, *s_matchstr;
     FWDLIST *fp;
 
     DPUSH; /* #91 */
 
     fp = (FWDLIST *) alloc_lbuf("process_preload.fwdlist");
     tstr = alloc_lbuf("process_preload.string");
+    tstr2 = alloc_lbuf("process_preload.string");
     i = 0;
     DO_WHOLE_DB(thing) {
 
@@ -1724,6 +1743,29 @@ NDECL(process_preload)
 
 	/* Look for a FORWARDLIST attribute */
 
+        if (H_Protect(thing)) {
+	    (void) atr_get_str(tstr, thing, A_PROTECTNAME,
+			       &aowner, &aflags);
+            if ( *tstr ) {
+               strcpy(tstr2, tstr);
+               s_strtok = strtok_r(tstr2, "\t", &s_strtokr);
+               while ( s_strtok ) {
+                  s_matchstr = strchr(s_strtok, ':');
+                  if ( s_matchstr ) {
+                     *s_matchstr = '\0';
+                     i_matchint = atoi(s_matchstr+1);
+                     if ( (i_matchint == 1) ) {
+                        add_player_name(thing, s_strtok);
+                        protectname_add(s_strtok, thing);
+                        protectname_alias(s_strtok, thing);
+                     }
+                  } else {
+                     protectname_add(s_strtok, thing);
+                  }
+                  s_strtok = strtok_r(NULL, "\t", &s_strtokr);
+               }
+            }
+        }
 	if (H_Fwdlist(thing)) {
 	    (void) atr_get_str(tstr, thing, A_FORWARDLIST,
 			       &aowner, &aflags);
@@ -1737,6 +1779,7 @@ NDECL(process_preload)
     }
     free_lbuf(fp);
     free_lbuf(tstr);
+    free_lbuf(tstr2);
     VOIDRETURN; /* #91 */
 }
 
@@ -1746,13 +1789,15 @@ int
 main(int argc, char *argv[])
 {
     DESC *d;
-    int mindb,
-        shmid;
+    int mindb;
     char gdbmDbPath[300];
     int argidx;
     int got_config = 0;
     int rebooting = 0;
+#ifndef NODEBUGMONITOR
     const int shmaddr;
+    int shmid;
+#endif
 
     db = NULL;
     dddb_var_init();

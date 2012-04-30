@@ -423,18 +423,18 @@
   channel         cd              news           newsdb
  
   @admin          @aflags         @apply_marked  @areg           @attribute 
-  @boot           @chown          @chownall      @clone          @conncheck 
-  @convert        @cut            @dbck          @depower        @destroy
-  @disable        @doing          @dump          @dynhelp        @enable      
-  @fixdb          @flag           @flagdef       @freeze         @function    
-  @halt           @hide           @hook          @icmd           @kick        
-  @limit          @list           @list_file     @listmotd       @lock        
-  @log            @logrotate      @mark          @mark_all       @money
-  @motd           @newpassword    @nuke          @pcreate        @poor        
-  @power          @ps             @purge         @quota          @readcache   
-  @reboot         @recover        @reclist       @rwho           @site 
-  @shutdown       @thaw           @timewarp      @toad           @turtle 
-  @wall           +players
+  @blacklist      @boot           @chown         @chownall       @clone     
+  @conncheck      @convert        @cut           @dbck           @depower  
+  @destroy        @disable        @doing         @dump           @dynhelp
+  @enable         @fixdb          @flag          @flagdef        @freeze
+  @function       @halt           @hide          @hook           @icmd 
+  @kick           @limit          @list          @list_file      @listmotd
+  @lock           @log            @logrotate     @mark           @mark_all
+  @money          @motd           @newpassword   @nuke           @pcreate
+  @poor           @power          @protect       @ps             @purge
+  @quota          @readcache      @reboot        @recover        @reclist
+  @rwho           @site           @shutdown      @snapshot       @thaw 
+  @timewarp       @toad           @turtle        @wall           +players
  
   @adesc2         @allowance      @altname       @badsite        @comment
   @createdstamp   @darkexitformat @goodsite      @invtype        @mailsmax
@@ -2011,6 +2011,27 @@
   
   See Also: @quota
  
+& blacklist.txt
+& @blacklist
+  Command: @blacklist[/<switch>]
+  This command lists, loads, or clears the current blacklists.  Blacklists are
+  similiar to forbid sites, except it keeps them in a seperate list to avoid
+  spamming the site list.  You can have a maximum of 100,000 entries in the
+  blacklist.  This reads a list of sites in a file blacklist.txt that it 
+  populates into the blacklist.  All invalid sites will be ignored.  All
+  site masks are assumed to be '255.255.255.255' (/32).  The blacklist.txt
+  file will be a single line list of IP's that you wish to have in the
+  blacklist.  There is a script that can be ran that will populate this
+  file with all known TOR exit points.
+  
+  The following switches exist for @blacklist:
+    /load  - Load in all sites in the blacklist.txt file
+    /clear - purges the blacklist
+    /list  - lists all sites in the blacklist
+  
+  If no switch is specified, it gives a summary of sites in the blacklist.
+  
+  See Also: forbid_site, @site
 & @boot
   Command: @boot[/<switches>] <player>
   Severs the named player's connection to the game.  The player is given a
@@ -2143,7 +2164,7 @@
             @dump/flat name_of_file   (makes filename 'name_of_file.flat')
             @dump                     (does a standard db dump)
   
-  See Also: @admin, @disable, @enable, @list, @shutdown.
+  See Also: @admin, @disable, @enable, @list, @shutdown, @snapshot
 
 & @enable
   Command: @enable <option>
@@ -2294,6 +2315,7 @@
     /preserve   - the function preserves setq registers (r(0)-r(9)).
     /delete     - delete the specified user-defined function.
     /display    - displays the details of the specified function.
+    /protect    - all setq registers called in a localized function are nulled.
   
   The function definitions created by @function are not stored in the database
   so they need to be re-created each time the RhostMUSH is started.  It is
@@ -2312,9 +2334,15 @@
   
   Examples:  @function myfunction=#123/myattribute
              @function/priv/pres myfunction=#123/myattribute
+             @function/priv/pres/prot myfunction=#123/myattribute
              @function/list
              @function/display myfunction
              @function/delete myfunction
+  
+  Note: With the /list switch, the following letters represent the following:
+             W - privalaged
+             p - preserved
+             + - protected
   
   See Also: @attribute 
  
@@ -2758,6 +2786,16 @@
   attribute numbers and access restrictions.
   
   You may specify a wildcard match for attributes.
+  
+  The following arguments are supported on user attributes:
+               *name*                 - wildcard match attribute names.
+               &FLAG1 FLAG2 ... FLAGn - return attributes with all flags.
+               |FLAG1 FLAG2 ... FLAGn - return attirbutes with any flag.
+
+  Examples:
+    > @list user_attrib fn.*    (find all user attributes starting with fn.)
+    > @list user_attrib &wizard safe (find all attribs set wizard AND safe)
+    > @list user_attrib |wizard safe (find any attrib with wizard OR safe)
 
 & @list toggles
   Command: @list toggles
@@ -2862,6 +2900,8 @@
                 to the filename.  You may specify subdirectories (up to 127
                 total characters for the filename including path).  This option
                 allows carrage returns, tabs, and ansi.
+                    Example: @log/file withthisname.
+                This makes a file with the name: withthisname_manual.log
       /stats  - gives you the current stats of the manual log file specified
                 by the manlog_file @admin parameter.
       /read # - reads page number '#' of the manual log file specified by the
@@ -2992,6 +3032,22 @@
   
   Example:  @poor 1000
 
+& @protect
+  Command: @protect[/<switch>] [<playername>]
+  
+  This is the wizard switches available for the @protect command.  
+  @protect allows you to lock in names so no one else can use them.
+  
+  Wizard switches available:
+    /byplayer - Specify /list by a specific player.  Argument
+                required for this option.
+    /summary  - Show a full summary list of protections per player.
+  
+  Wizards who /list see all protected names.  Wizards may delete
+  names that they do not own.  Immortals bypass all protected names.
+  
+  See Also: max_name_protect
+  
 & @ps
   Command: @ps[/<switches>] [<object>]
   Wizards may also use the following switches with the @ps command:
@@ -3524,6 +3580,33 @@
   config directive.
   
   See Also: status_file
+
+& @snapshot
+  Command: @snapshot[/<switch>] <arg1> [=<arg2>]
+  
+  The snapshot command takes a snapshot image of a target dbref# and 
+  optionally performs a task based on the optional switch to both the
+  image file and the object in question.  The following switches exist:
+  
+    /list   - Syntax: @snapshot/list  (default)
+              This lists all image files you currently have to disk.
+    /verify - Syntax: @snapshot/verify <imagefile>
+              This issues a sanity check on the image file and lets
+              you know if the file is valid or corrupt.
+    /del    - Syntax: @snapshot/del <imagefile>
+              This deletes the specified image file from the drive.
+    /unload - Syntax: @snapshot/unload <target> [=<optional prefix>]
+              This makes a snapshot file of the specified target and
+              creates an optional prefix name for it.  Default name
+              will be the dbref#.  '123.img' for example.
+    /load   - Syntax: @snapshot/load <target> = <imagefile>
+              This will load the image file onto the specified object.
+              The object types MUST be the same, the object MUST be
+              a valid object, and some things (like location) will
+              be skipped on the restore.  Parents and Zones will be
+              set if validated.
+  
+  See Also: @dump, @dbck
 
 & @hide
   Command: @hide[/<switches>]
@@ -4301,18 +4384,18 @@
   badsite_file             bcc_hidden               brace_compatibility
   break_compatability      cache_depth              cache_steal_dirty      
   cache_trim               cache_width              check_interval         
-  check_offset             clone_copies_cost        comcost                
-  command_dark             command_quota_increment  command_quota_max      
-  compress_program         compression              config_access          
-  conn_timeout             connect_file             connect_reg_file       
-  cpu_secure_lvl           cpuintervalchk           cputimechk             
-  crash_database           create_max_cost          create_min_cost        
-  dark_sleepers            descs_are_local          default_home           
-  dig_cost                 door_file                door_index             
-  down_file                down_motd_message        dump_interval          
-  dump_message             dump_offset              earn_limit             
-  empower_fulltel          enable_tstamps           enforce_unfindable     
-  error_file
+  check_offset             clone_copies_cost        cluster_cap
+  clusterfunc_cap          comcost                  command_dark           
+  command_quota_increment  command_quota_max        compress_program       
+  compression              config_access            conn_timeout           
+  connect_file             connect_reg_file         cpu_secure_lvl         
+  cpuintervalchk           cputimechk               crash_database         
+  create_max_cost          create_min_cost          dark_sleepers          
+  descs_are_local          default_home             dig_cost               
+  door_file                door_index               down_file              
+  down_motd_message        dump_interval            dump_message           
+  dump_offset              earn_limit               empower_fulltel        
+  enable_tstamps           enforce_unfindable       error_file
   
 { 'wizhelp config parameters2' for more }
 
@@ -4364,11 +4447,11 @@
   mailinclude_file         mailprog                 mailsub                
   mailmax_send             master_room              match_own_commands     
   manlog_file              max_cpu_cycles           max_dest_limit         
-  max_folders              max_lastsite_cnt         max_pcreate_lim        
-  max_pcreate_time         max_percentsubs          max_players            
-  max_sitecons             max_vattr_limit          maximum_size           
-  min_con_attempt          money_lim_off            money_lim_gm           
-  money_lim_arch         
+  max_folders              max_lastsite_cnt         max_name_protect
+  max_pcreate_lim          max_pcreate_time         max_percentsubs        
+  max_players              max_sitecons             max_vattr_limit        
+  maximum_size             min_con_attempt          money_lim_off          
+  money_lim_gm             money_lim_arch         
   
 { 'wizhelp config parameters4' for more }
 
@@ -4377,15 +4460,16 @@
   
   money_lim_counc          money_name_plural        money_name_singular    
   motd_file                motd_message             mud_name               
-  muddb_name               must_unlquota            nand_compat
-  newpass_god              news_file                news_index             
-  newuser_file             no_startup               noauth_site            
-  noautoreg_host           noautoreg_site           nobroadcast_host       
-  noguest_host             noguest_site             nohost_site            
-  nonindxtxt_maxlines      noregist_onwho           noshell_prog           
-  nospam_connect           notify_recursion_limit   notonerr_return        
-  num_guests               oattr_enable_altname     oattr_uses_altname     
-  offline_reg              online_reg               open_cost              
+  muddb_name               must_unlquota            mux_child_compat
+  mus_lcon_compat          nand_compat              newpass_god            
+  news_file                news_index               newuser_file           
+  no_startup               noauth_site              noautoreg_host         
+  noautoreg_site           nobroadcast_host         noguest_host           
+  noguest_site             nodns_site               nonindxtxt_maxlines    
+  noregist_onwho           noshell_prog             nospam_connect         
+  notify_recursion_limit   notonerr_return          num_guests             
+  oattr_enable_altname     oattr_uses_altname       offline_reg            
+  old_elist                online_reg               open_cost              
   output_database          output_limit             page_cost              
   paranoid_allocate        paranoid_exit_linking    parentable_control_lock
   partial_conn             partial_deconn           paycheck               
@@ -4418,11 +4502,11 @@
   sacrifice_adjust          sacrifice_factor          safe_wipe
   safer_passwords           search_cost               secure_atruselock
   secure_dark               secure_functions          secure_jumpok
-  see_owned_dark            signal_action             showother_altname
-  shs_reverse               sidefx_maxcalls           sidefx_returnval      
-  sideeffects               signal_object             signal_object_type
-  space_compress            spam_limit                spam_msg           
-  spam_objmsg               stack_limit
+  see_owned_dark            showother_altname         shs_reverse             
+  sidefx_maxcalls           sidefx_returnval          sideeffects             
+  signal_action             signal_cron               signal_object           
+  signal_object_type        space_compress            spam_limit              
+  spam_msg                  spam_objmsg               stack_limit
 
 { 'wizhelp config parameters6' for more}
 
@@ -4431,19 +4515,19 @@
 
   start_build               starting_money            starting_quota
   suspect_host              suspect_site              sweep_dark
-  switch_default_all        switch_substitutions      terse_shows_contents
-  terse_shows_exits         terse_shows_move_messages thing_attr_default
-  thing_flags               thing_parent              thing_quota
-  timeslice                 trace_output_limit        trace_topdown
-  trust_site                uncompress_program        unowned_safe
-  user_attr_flags           validate_host             vattr_limit_checkwiz
-  vlimit                    wait_cost                 wall_cost
-  whereis_notify            wizmax_dest_limit         wizmax_vattr_limit
-  who_default               who_unfindable            who_showwiz
-  who_wizlevel              who_whowiztype            whohost_size
-  wiz_override              wiz_uselock               wizard_help_file
-  wizard_help_index         wizard_motd_file          wizard_motd_message
-  wizard_queue_limit        zone_parents
+  switch_default_all        switch_search             switch_substitutions    
+  terse_shows_contents      terse_shows_exits         terse_shows_move_messages
+  thing_attr_default        thing_flags               thing_parent            
+  thing_quota               timeslice                 trace_output_limit      
+  trace_topdown             trust_site                uncompress_program      
+  unowned_safe              user_attr_flags           validate_host           
+  vattr_limit_checkwiz      vlimit                    wait_cost               
+  wall_cost                 whereis_notify            wizmax_dest_limit       
+  wizmax_vattr_limit        who_default               who_unfindable          
+  who_showwiz               who_wizlevel              who_whowiztype          
+  whohost_size              wiz_override              wiz_uselock             
+  wizard_help_file          wizard_help_index         wizard_motd_file        
+  wizard_motd_message       wizard_queue_limit        zone_parents
 
 { 'wizhelp config parameters7' for more (reality levels) }
 
@@ -4694,6 +4778,7 @@
   Specifies how often (in seconds) the database is to be automatically
   scanned for inconsistencies and purged of references to destroyed objects.
   Any inconsistencies found are either fixed or recorded in the log file.
+  
   See Also: check_offset, @dbck.
 
 & check_offset
@@ -4701,6 +4786,7 @@
   Specifies how long after startup the first automatic database check is
   to be performed.  Subsequent checks are performed every check_interval
   seconds.
+  
   See Also: check_interval, @dbck.
 
 & cache_steal_dirty
@@ -4714,7 +4800,28 @@
   If disabled, @cloned objects cost the same as a @create that doesn't specify
   the object cost.  The new owner is charged the correct amount in either
   case.
+  
   See Also: @clone.
+
+& cluster_cap
+  Config parameter: cluster_cap <value>.  Default: 10
+  Specifies the delay in seconds when a cluster action (command) can be 
+  triggered.  This is a GLOBAL setting and effects ALL clusters.  Cluster 
+  actions are not target specific, but mush-wide.  This is to avoid 
+  possible denial of service attacks.  Change at your own risk.
+  
+  See Also: clusterfunc_cap
+
+& clusterfunc_cap
+  Config parameter: clusterfunc_cap <value>.  Default: 1
+  Specifies the delay in seconds when a cluster function action (function)
+  can be triggered.  This is a GLOBAL setting and effects ALL clusters.
+  Cluster function actions are not target specific, but mush wide.  This
+  is to avoid possible denial of service attacks.  Change at your own
+  risk, however unlike cluster_cap, this will be executed per command
+  so the risk is greatly reduced.
+  
+  See Also: cluster_cap
 
 & command_dark
   Config parameter: command_dark <value>.  Default: OFF(0)
@@ -5089,8 +5196,8 @@
   you don't necessarilly want to be spammed with all the site connection
   information.  
 
-& nohost_site
-  Config parameter: nohost_site <addr> <mask>.
+& nodns_site
+  Config parameter: nodns_site <addr> <mask>.
   Indicates that connections are to ignore reverse DNS lookups.  This is 
   useful when remote sites have mangled DNS addresses or if they are
   configured wrong.  This also helps in conditions where you may be
@@ -6022,6 +6129,14 @@
   
   See Also: lastsite_paranoia, min_con_attempt
 
+& max_name_protect
+  Config parameter: max_name_protect <num>.  Default: 0
+  
+  This specifies how many names a player may protect.  The value range
+  is locked in between 0 and 100.  This refers to the @protect command.
+  
+  See Also: @protect
+
 & max_pcreate_lim
   Config parameter: max_pcreate_lim <num>.  Default: -1 (unlimited)
   
@@ -6173,6 +6288,18 @@
   @quota/unlock and @quota/lock to immortal or #1 access only.  This will
   then restrict who can give a locked player quota to a higher degree.
  
+& mux_child_compat
+  Config parameter: mux_child_compat <bool>  Default: no (0)
+  Specifies if children() should follow the 'broken' method of mux/tm3's
+  children() and return a null string if no children are found instead
+  of #-1 (which follows parent()).
+
+& mux_lcon_compat
+  Config parameter: mux_lcon_compat <bool>  Default: no (0)
+  Specifies if lcon() returns null (an empty string) if there is no
+  contents.  The default behavior is that it returns #-1 if there is
+  no contents.
+
 & newpass_god
   Config parameter: newpass_god <1/0>.  Default: 0 
   This is only valid in the config file.  If specified, it will allow
@@ -6303,6 +6430,12 @@
   with register_site as it's pretty pointless to have autoregistration
   on when they can just create a character at will.
 
+& old_elist
+  Config parameter: old_elist <yes/no>.  Default: NO
+  This forces elist() to work like the older version which would allow
+  a double-eval for the first list.  This is considered a security risk
+  but is allowed as a paramter for backward compatibility for games.
+  
 & online_reg
   Config parameter: online_reg <yes/no>.  Default: NO
   Indicates if you desire to use autoregistration.  When turned on, it
@@ -7073,6 +7206,31 @@
                 network connections, and return to the point where the signal
                 originated.  Retrying the failed operation should produce
                 a coredump, although the stack may or may not be readable.
+  
+  See Also: @admin, signal, signal_object, signal_object_type, signal_cron
+
+& signal_cron
+  Config parameter: signal_cron <bool>  Default: no (0)
+  This parameter specifies if you load in a predefined 'cron' file at the
+  signal.  This is useful for tying in outside mush processing into the
+  standard queue cycle.  For example, tying in the unix crontab right
+  into the mush itself.
+  
+  The file that is read is in the game directory.  cron/rhost.cron
+  
+  The syntax of the cron/rhost.cron file is:
+          username                (or dbref# can work as well)
+          command1;command2
+          command
+          command
+          command
+  
+  You can have up to 20 lines of commands after the target specified.
+  If you wish to have a non-player, use its dbref#.  Any line after
+  20 lines will be ignored and flag a warning in the netrhost.gamelog
+  file.
+  
+  See Also: @admin, signals, signal_action, signal_object, signal_object_type
 
 & signal_object
   Config parameter: signal_object <dbref>.                        Default: -1
@@ -7099,7 +7257,7 @@
     # kill -SIGUSR1 1234
     I've been rebooted! (seen in room #0)
   
-  See Also: config parameters, signals, @admin, signal_object_type
+  See Also: config parameters, signals, @admin, signal_object_type, signal_cron
 
 & signal_object_type
   Config parameter: signal_object_type <boolean>              Default: 0
@@ -7112,7 +7270,7 @@
   question is immortal (or even #1 owned) and can not be modified by anyone
   outside your circle of trust.
   
-  See Also: config parameters, signals, @admin, signal_object
+  See Also: config parameters, signals, @admin, signal_object, signal_cron
 
 & space_compress
   Config parameter: space_compress <yes/no>.  Default: yes
@@ -7306,12 +7464,14 @@
   Indicates that sites whose address matches the specified address when ANDed
   with the mask are to be considered suspect, and any player creates, connects
   and disconnects are to be reported to all logged-in wizards.
+  
   See Also: trust_site, SITE LISTS.
 
 & sweep_dark
   Config parameter: sweep_dark <yes/no>.  Default: no
   Indicates whether or not players are allowed to @sweep dark places they do
   not control.
+  
   See Also: @sweep.
 
 & switch_default_all
@@ -7319,6 +7479,12 @@
   Indicates whether the @switch command should perform the commands for all
   targets that match or just the first one that matches if you don't specify
   either /all or /first as a command switch.
+
+& switch_search
+  Config parameter: switch_search <yes/no>.  Default: no
+  Specifies if search and searchng are switched for evaluation.
+  
+  See Also: (in help) @search, search(), searchng()
 
 & switch_substitutions
   Config parameter: switch_substitutions <yes/no>.  Default: no
@@ -7617,7 +7783,6 @@
   See Also: @limit, wizmax_vattr_limit, max_dest_limit, vattr_limit_checkwiz,
             max_vattr_limit
 
-& max_lastsite_cnt
 & zone_parents
   Config parameter: zone_parents (yes/no).  Default: YES
   This option specifies if zones are allowed to inherit attributes from
@@ -7918,6 +8083,7 @@
     # - page (1, 2, etc) for attribute listing.  118 for 32byte attrs.
     > - find the alphanumerical largest attribute name.
     < - find the alphanumerical smallest attribute name.
+    ~ - [~#1-#2] list attribs starting at #1 until count of #2.
   
   { see help lattrp2 for examples }
 
@@ -8739,13 +8905,13 @@ try to keep all information on a 20x78 screen.
  
 & help setup
   The help.txt file is set up like the news.txt file.  To see how this file
-  is designed and updated, please refer to 'help news setup'.
+  is designed and updated, please refer to 'wizhelp news setup'.
   
   See Also: news setup
 
 & plushelp setup
   The plushelp.txt file is set up like the news.txt file.  To see how this
-  file is designed and updated, please refer to 'help news setup'.
+  file is designed and updated, please refer to 'wizhelp news setup'.
 
 & elsefile setup
   You may set up ANY file to be read from within the mush by using the
@@ -8831,7 +8997,7 @@ try to keep all information on a 20x78 screen.
   This allows you to randomize the messages a player can get.
   
   The error.txt file is set up like the news.txt file.  To see how this
-  file is designed and updated, please refer to 'help news setup'.
+  file is designed and updated, please refer to 'wizhelp news setup'.
   
 & PAGELOCK TOGGLE
   Toggle: PAGELOCK (Royalty and higher)

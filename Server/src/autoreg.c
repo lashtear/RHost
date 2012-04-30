@@ -198,7 +198,7 @@ void areg_unload(dbref player)
   time(&mudstate.aregflat_time);
 }
 
-int getline(char *buf, FILE *fpt)
+int mush_getline(char *buf, FILE *fpt)
 {
   char *pt1, in;
 
@@ -244,8 +244,8 @@ void areg_load(dbref player)
     return;
   }
   intpt = (int *)nbuffer;
-  while (getline(rbuff1,dump1)) {
-    getline(rbuff2,dump1);
+  while (mush_getline(rbuff1,dump1)) {
+    mush_getline(rbuff2,dump1);
     pt1 = strchr(rbuff2,'/');
     *pt1 = '\0';
     *intpt = atoi(rbuff2);

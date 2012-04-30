@@ -116,11 +116,18 @@ void do_say (dbref player, dbref cause, int key, char *message)
 
 	switch (key) {
 	case SAY_SAY:
-                tprp_buff = tpr_buff = alloc_lbuf("do_say");
-		notify(player, safe_tprintf(tpr_buff, &tprp_buff, "You say \"%s\"", message));
-                free_lbuf(tpr_buff);
                 pbuf = atr_get(player, A_SAYSTRING, &aowner, &aflags);
                 tprp_buff = tpr_buff = alloc_lbuf("do_say");
+                if ( SafeLog(player) ) {
+                   if ( pbuf && *pbuf ) {
+		      notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%s %.30s \"%s\"", Name(player), pbuf, message));
+                   } else {
+		      notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%s says \"%s\"", Name(player), message));
+                   }
+                } else {
+		   notify(player, safe_tprintf(tpr_buff, &tprp_buff, "You say \"%s\"", message));
+                }
+                tprp_buff = tpr_buff;
                 if ( Anonymous(player) && Cloak(player) ) {
                    if ( pbuf && *pbuf )
 #ifdef REALITY_LEVELS
@@ -429,42 +436,49 @@ static void page_pose (dbref player, dbref target, int port, char *message)
 }
 
 static void page_return (dbref player, dbref target, const char *tag, 
-		int anum, const char *dflt)
+                         int anum, const char *dflt, const char *s_pagestr)
 {
-dbref	aowner;
-int	aflags;
-char	*str, *str2, *tpr_buff, *tprp_buff;
-struct tm *tp;
-time_t	t;
+   dbref aowner;
+   int aflags, i_pagebuff;
+   char *str, *str2, *tpr_buff, *tprp_buff, *s_pagebuff[2];
+   struct tm *tp;
+   time_t t;
 
-	if (Wizard(player))
-	  mudstate.droveride = 1;
-	str = atr_pget(target, anum, &aowner, &aflags);
-	if (*str) {
-                mudstate.chkcpu_stopper = time(NULL);
-                mudstate.chkcpu_toggle = 0;
-		str2 = exec(target, player, player, EV_FCHECK|EV_EVAL|EV_TOP, str,
-			(char **)NULL, 0);
-		t = time(NULL);
-		tp = localtime(&t);
-                if (*str2) {
-                   tprp_buff = tpr_buff = alloc_lbuf("page_return");
-		   notify_with_cause(player, target,
-			   safe_tprintf(tpr_buff, &tprp_buff, "%s message from %s: %s",
-				   tag, Name(target), str2));
-                   free_lbuf(tpr_buff);
-                   tprp_buff = tpr_buff = alloc_lbuf("page_return");
-		   notify_with_cause(target, player,
-			   safe_tprintf(tpr_buff, &tprp_buff, "[%d:%02d] %s message sent to %s.",
-				   tp->tm_hour, tp->tm_min, tag, Name(player)));
-                   free_lbuf(tpr_buff);
-                }
-		free_lbuf(str2);
-	} else if (dflt && *dflt) {
-		notify_with_cause(player, target, dflt);
-	}
-	mudstate.droveride = 0;
-	free_lbuf(str);
+   if (Wizard(player))
+      mudstate.droveride = 1;
+   str = atr_pget(target, anum, &aowner, &aflags);
+   if (*str) {
+      mudstate.chkcpu_stopper = time(NULL);
+      mudstate.chkcpu_toggle = 0;
+      s_pagebuff[1] = NULL;
+      if ( s_pagestr && *s_pagestr ) {
+         s_pagebuff[0] = (char *)s_pagestr;
+         i_pagebuff = 1;
+      } else {
+         s_pagebuff[0] = NULL;
+         i_pagebuff = 0;
+      }
+      str2 = exec(target, player, player, EV_FCHECK|EV_EVAL|EV_TOP, str,
+                  s_pagebuff, i_pagebuff);
+      t = time(NULL);
+      tp = localtime(&t);
+      if (*str2) {
+         tprp_buff = tpr_buff = alloc_lbuf("page_return");
+         notify_with_cause(player, target,
+                           safe_tprintf(tpr_buff, &tprp_buff, "%s message from %s: %s",
+                                        tag, Name(target), str2));
+         tprp_buff = tpr_buff;
+         notify_with_cause(target, player,
+                           safe_tprintf(tpr_buff, &tprp_buff, "[%d:%02d] %s message sent to %s.",
+                                        tp->tm_hour, tp->tm_min, tag, Name(player)));
+         free_lbuf(tpr_buff);
+      }
+      free_lbuf(str2);
+   } else if (dflt && *dflt) {
+      notify_with_cause(player, target, dflt);
+   }
+   mudstate.droveride = 0;
+   free_lbuf(str);
 }
 
 static int page_check (dbref player, dbref target, int num, int length)
@@ -490,17 +504,17 @@ static int page_check (dbref player, dbref target, int num, int length)
 				     mudconf.many_coins));
                 free_lbuf(tpr_buff);
 	} else if (!Connected(target)) {
-		page_return(player, target, "Away", A_AWAY, buff);
+		page_return(player, target, "Away", A_AWAY, buff, NULL);
 	} else if (Cloak(target) && ((SCloak(target) && !Immortal(player)) || !Wizard(player))) {
-		page_return(player, target, "Away", A_AWAY, buff);
+		page_return(player, target, "Away", A_AWAY, buff, NULL);
 	} else if (DePriv(player, target, DP_PAGE, POWER6, NOTHING)) {
 		notify(player, "Permission denied.");
 	} else if (!could_doit(player, target, A_LPAGE,1)) {
 		if (Wizard(target) && Cloak(target))
-			page_return(player, target, "Away", A_AWAY, buff);
+			page_return(player, target, "Away", A_AWAY, buff, NULL);
 		else {
 			sprintf(buff,"Sorry, %s is not accepting pages.", Name(target));
-			page_return(player, target, "Reject", A_REJECT, buff);
+			page_return(player, target, "Reject", A_REJECT, buff, NULL);
 		}
 	} else if (!could_doit(target, player, A_LPAGE,3)) {
                 tprp_buff = tpr_buff = alloc_lbuf("page_check");
@@ -526,9 +540,11 @@ static int page_check (dbref player, dbref target, int num, int length)
 void do_page(dbref player, dbref cause, int key, char *tname, char *message)
 {
   dbref	target, owner, pl_aowner;
-  char	*nbuf, *p1, *p2, buff[50], *dbuff, *dbx, *fbuff, *fbx, *sbuff, sep, *pos1, *pos2, *pos3, *px;
-  char	*lbuff, *lbx, *alias_pos1, *alias_px, *pl_alias, *mpg, *t_msg, *t_msgp, *tpr_buff, *tprp_buff;
-  int	flags, port, got, got2, num, nuts, pc, fnum, lnum, *ilist, pl_aflags, mpr_chk, nkey;
+  char	*nbuf, *p1, *p2, buff[50], *dbuff, *dbx, *fbuff, *fbx, *sbuff, sep, *pos1, 
+        *pos2, *pos3, *px, *lbuff, *lbx, *alias_pos1, *alias_px, *pl_alias, *mpg, 
+        *t_msg, *t_msgp, *tpr_buff, *tprp_buff, *s_ret_warn, *s_ret_warnptr;
+  int	flags, port, got, got2, num, nuts, pc, fnum, lnum, *ilist, pl_aflags, 
+        mpr_chk, nkey, s_ret_warnkey;
   
         /* Lensy:
          *  If they type 'page' by itself, then tell them who they last paged
@@ -887,8 +903,17 @@ void do_page(dbref player, dbref cause, int key, char *tname, char *message)
 	  }
 	  strcpy(nbuf, Name(where_is(player)));
           tprp_buff = tpr_buff = alloc_lbuf("do_page");
+          s_ret_warnptr = s_ret_warn = alloc_lbuf("do_page_warn");
+          s_ret_warnkey = 0;
 	  for (got = 0; got < num; got++) {
 	    target = *(ilist + got);
+            if ( Good_chk(target) && ((Cloak(player) && !Wizard(target)) ||
+                                      (SCloak(player) && !Immortal(target))) ) {
+               if ( s_ret_warnkey )
+                  safe_str(", ", s_ret_warn, &s_ret_warnptr);
+               safe_str(Name(target), s_ret_warn, &s_ret_warnptr);
+               s_ret_warnkey=1;
+            }
 	    if (!*p1) {
 	      if (Wizard(player))
 	        mudstate.droveride = 1;
@@ -929,9 +954,8 @@ void do_page(dbref player, dbref cause, int key, char *tname, char *message)
               }
               free_lbuf(pl_alias);
 	      mudstate.droveride = 0;
-	      page_return(player, target, "Idle", A_IDLE, NULL);
-	    }
-	    else {
+	      page_return(player, target, "Idle", A_IDLE, NULL, tpr_buff);
+	    } else {
 		nuts = 0;
 		switch (*p1) {
 		case ':':
@@ -1020,7 +1044,7 @@ void do_page(dbref player, dbref cause, int key, char *tname, char *message)
 			if (nuts)
 			  p1--;
 		} 
-		page_return(player, target, "Idle", A_IDLE, NULL);
+		page_return(player, target, "Idle", A_IDLE, NULL, tpr_buff);
 	    } 
             if ( (key == 0) || (key == PAGE_RETMULTI) || (key == PAGE_LAST)) {
                t_msgp = t_msg = alloc_lbuf("retpage_multi");
@@ -1043,8 +1067,7 @@ void do_page(dbref player, dbref cause, int key, char *tname, char *message)
 		pos1 + 5));
 	    }
             free_lbuf(tpr_buff);
-	  }
-	  else {
+	  } else {
 	    switch (*p1) {
 	      case ':':
 		p1[0] = ' ';
@@ -1078,6 +1101,14 @@ void do_page(dbref player, dbref cause, int key, char *tname, char *message)
                 free_lbuf(tpr_buff);
 	    }
 	  }
+          if ( *s_ret_warn ) {
+             tprp_buff = tpr_buff = alloc_lbuf("do_page");
+             tprp_buff = tpr_buff;
+             notify(player, safe_tprintf(tpr_buff, &tprp_buff, "Warning - You are hidden from the following users: %s", 
+                                         s_ret_warn));
+             free_lbuf(tpr_buff);
+          }
+          free_lbuf(s_ret_warn);
 	  free_lbuf(nbuf);
 	  free_lbuf(pos1);
           free_lbuf(alias_pos1);
@@ -1616,20 +1647,27 @@ ZLISTNODE *z_ptr, *y_ptr;
                   break;
                case PEMIT_FSAY:
                   tprp_buff = tpr_buff = alloc_lbuf("do_pemit");
-                  notify(target, safe_tprintf(tpr_buff, &tprp_buff, "You say \"%s\"", result));
-                  free_lbuf(tpr_buff);
+                  pbuf = atr_get(player, A_SAYSTRING, &aowner, &aflags);
+                  if ( SafeLog(target) && (target == player) ) {
+                     if ( pbuf && *pbuf ) {
+		        notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%s %.30s \"%s\"", Name(target), pbuf, result));
+                     } else {
+		        notify(player, safe_tprintf(tpr_buff, &tprp_buff, "%s says \"%s\"", Name(target), result));
+                     }
+                  } else {
+		     notify(player, safe_tprintf(tpr_buff, &tprp_buff, "You force %s to say \"%s\"", Name(target), result));
+                  }
                   if (loc != NOTHING) {
-                     pbuf = atr_get(player, A_SAYSTRING, &aowner, &aflags);
-                     tprp_buff = tpr_buff = alloc_lbuf("do_pemit");
+                     tprp_buff = tpr_buff;
                      if ( pbuf && *pbuf )
                         notify_except(loc, player, target,
                                       safe_tprintf(tpr_buff, &tprp_buff, "%s %.30s \"%s\"", Name(target), pbuf, result));
                      else
                         notify_except(loc, player, target,
                                       safe_tprintf(tpr_buff, &tprp_buff, "%s says \"%s\"", Name(target), result));
-                     free_lbuf(tpr_buff);
-                     free_lbuf(pbuf);
                   }
+                  free_lbuf(pbuf);
+                  free_lbuf(tpr_buff);
                   break;
                case PEMIT_FPOSE:
                   tprp_buff = tpr_buff = alloc_lbuf("do_pemit");

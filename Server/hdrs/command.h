@@ -35,6 +35,7 @@ CMD_ONE_ARG(do_aflags);
 CMD_TWO_ARG(do_alias);			/* Change the alias of something */
 CMD_TWO_ARG(do_areg);
 CMD_TWO_ARG(do_attribute);		/* Manage user-named attributes */
+CMD_ONE_ARG(do_blacklist);		/* Load/Clear/List blacklist.txt file */
 CMD_ONE_ARG(do_boot);			/* Force-disconnect a player */
 CMD_TWO_ARG_CMDARG(do_break);
 CMD_TWO_ARG_CMDARG(do_assert);
@@ -83,6 +84,7 @@ CMD_ONE_ARG(do_help);			/* Print info from help files */
 CMD_ONE_ARG(do_hide);			/* Hide/Unhide from WHO */
 CMD_ONE_ARG(do_hook);			/* Warp various timers */
 CMD_TWO_ARG_ARGV(do_icmd);
+CMD_TWO_ARG_ARGV_CMDARG(do_include);	/* @include attribute into command */
 CMD_NO_ARG(do_inventory);		/* Print what I am carrying */
 CMD_NO_ARG(do_worn);		        /* Print what I am wearing */
 CMD_NO_ARG(do_wielded);		        /* Print what I am wielding */
@@ -111,6 +113,7 @@ CMD_ONE_ARG(do_single_mail);
 CMD_TWO_ARG(do_wmail);
 CMD_TWO_ARG(do_mail2);
 CMD_TWO_ARG(do_program);		/* MUX-compatible @program */
+CMD_ONE_ARG(do_protect);		/* @protect name convention(s) */
 CMD_ONE_ARG(do_purge);
 CMD_ONE_ARG(do_reclist);
 CMD_ONE_ARG(do_recover);
@@ -155,7 +158,10 @@ CMD_TWO_ARG(do_setvattr);		/* Set variable attribute */
 CMD_TWO_ARG(do_setvattr_cluster);	/* Set variable attribute on cluster */
 CMD_ONE_ARG(do_shutdown);		/* Stop the game */
 CMD_TWO_ARG(do_site);
+CMD_TWO_ARG_CMDARG(do_skip);		/* @skip command if boolean true */
+CMD_TWO_ARG(do_snapshot);
 CMD_ONE_ARG(do_stats);			/* Display object type breakdown */
+CMD_TWO_ARG_CMDARG(do_sudo);		/* @sudo someone to do something */
 CMD_ONE_ARG(do_sweep);			/* Check for listeners */
 CMD_TWO_ARG_ARGV_CMDARG(do_switch);	/* Execute cmd based on match */
 CMD_TWO_ARG_ARGV(do_teleport);		/* Teleport elsewhere */
@@ -287,6 +293,7 @@ typedef struct aliasentry {
 #define HOOK_CLEAR	0x00000040	/* CLEAR hook */
 #define HOOK_LIST	0x00000080	/* LIST hooks */
 #define HOOK_FAIL       0x00000100      /* FAIL hooks */
+
 
 extern int	FDECL(check_access, (dbref, int, int, int));
 extern void	FDECL(process_command, (dbref, dbref, int, char *, char *[], int, int));

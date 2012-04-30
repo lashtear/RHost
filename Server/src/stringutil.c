@@ -904,10 +904,22 @@ trigger_cluster_action(dbref thing, dbref player)
       }
       free_lbuf(s_tmpstr);
       if ( (i_highball > 0) && (i_highball < i_lowball) ) {
-         attr = atr_str("_CLUSTER_ACTION");
-         if ( attr && (mudstate.clust_time + 10) < mudstate.now ) {
-            did_it(thing, thing, 0, NULL, 0, NULL, attr->number, (char **) NULL, 0);
-            mudstate.clust_time = mudstate.now;
+         attr = atr_str("_CLUSTER_ACTION_FUNC");
+         if ( !attr ) {
+            attr = atr_str("_CLUSTER_ACTION");
+            if ( attr && (mudstate.clust_time + mudconf.cluster_cap) < mudstate.now ) {
+               did_it(thing, thing, 0, NULL, 0, NULL, attr->number, (char **) NULL, 0);
+               mudstate.clust_time = mudstate.now;
+            }
+         } else if ( (mudstate.clust_time + mudconf.clusterfunc_cap) < mudstate.now ) {
+            s_strtok = atr_get(thing, attr->number, &aowner, &aflags);
+            if ( s_strtok && *s_strtok ) {
+               s_tmpstr = exec(thing, thing, thing, EV_STRIP | EV_FCHECK | EV_EVAL, 
+                               s_strtok, (char **)NULL, 0);
+               free_lbuf(s_tmpstr);
+               mudstate.clust_time = mudstate.now;
+            }
+            free_lbuf(s_strtok);
          }
       }
    }

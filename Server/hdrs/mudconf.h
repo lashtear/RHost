@@ -29,6 +29,7 @@ struct confdata {
 #ifndef STANDALONE
         char    data_dir[128];   /* Directory for database files */
         char    txt_dir[128];    /* Directory for txt and help files */
+	char	image_dir[128];	/* Snapshot image directory */
 	char	indb[128];	/* database file name */
 	char	outdb[128];	/* checkpoint the database to here */
 	char	crashdb[128];	/* write database here on crash */
@@ -373,6 +374,14 @@ struct confdata {
 	int	break_compatibility;	/* @break/@assert double-eval compatibility */
 	char	sub_include[200];	/* Include specified characters for %-subs */
 	int	log_network_errors;	/* Turn on or off network error logging */
+	int	old_elist;		/* old elist processing */
+	int	cluster_cap;		/* Cluster cap for processing */
+	int	clusterfunc_cap;	/* Cluster cap for processing (function) */
+	int	mux_child_compat;	/* Is it MUX/TM3 compatable for children() */
+	int	mux_lcon_compat;	/* Is it MUX/TM3 compatable for children() */
+	int	switch_search;		/* Switch search() and searchng() */
+	int	signal_crontab;		/* Signal the crontab via USR1 */
+        int 	max_name_protect;	/* Maximum name protects allowed */
 #ifdef REALITY_LEVELS
         int no_levels;          /* # of reality levels */
         struct rlevel_def {
@@ -421,6 +430,7 @@ struct confdata {
 	int	enforce_unfindable;	/* Enforce unfindable on target */
 	int	power_objects;		/* Objects can have powers */
 	char	sub_include[200];
+	int	old_elist;		/* Old elist processing */
 #endif	/* STANDALONE */
 };
 
@@ -448,6 +458,13 @@ struct alist {
 	struct alist *next;
 };
 
+typedef struct protectname_struc PROTECTNAME;
+struct protectname_struc {
+	char	*name;
+	dbref	i_name;
+	int	i_key;
+	struct protectname_struc	*next;
+};
 typedef struct badname_struc BADNAME;
 struct badname_struc {
 	char	*name;
@@ -458,6 +475,14 @@ typedef struct forward_list FWDLIST;
 struct forward_list {
 	int	count;
 	int	data[1000];
+};
+
+typedef struct blacklist_list BLACKLIST;
+struct blacklist_list {
+	char	s_site[20];
+        struct	in_addr	site_addr;
+	struct	in_addr mask_addr;
+	struct	blacklist_list	*next;
 };
 
 typedef struct statedata STATEDATA;
@@ -559,6 +584,7 @@ struct statedata {
 	BQUE	*fqsemfirst;	/* Head of freeze semaphore queue */
 	BQUE	*fqsemlast;	/* Tail of freeze semaphore queue */
 	BADNAME	*badname_head;	/* List of disallowed names */
+	PROTECTNAME	*protectname_head;	/* List of protected names */
 	int	mstat_ixrss[2];	/* Summed shared size */
 	int	mstat_idrss[2];	/* Summed private data size */
 	int	mstat_isrss[2];	/* Summed private stack size */
@@ -584,6 +610,7 @@ struct statedata {
 #ifdef EXPANDED_QREGS
         char    nameofqreg[37]; /* Buffer to hold qregs */
 #endif
+        int	global_regs_wipe;	/* Toggle to wipe localized regs */
 	int	mail_state;
 	int	whisper_state;
 	int	eval_rec;
@@ -621,6 +648,7 @@ struct statedata {
 	int	stack_toggle;	/* Toggle to show if stack was hit or not */
 	int	stack_cntr;	/* Counter of how many consecutive stack overflows there were */
         int     train_cntr;     /* Counter for train nest limit */
+        int     sudo_cntr;      /* Counter for sudo nest limit */
         int     sidefx_currcalls; /* Current sidefx calls */
         int     sidefx_toggle;  /* Toggle to show sidefx ceiling was hit */
 	int     emit_substitute;  /* Toggle @emit substitutions */
@@ -644,6 +672,11 @@ struct statedata {
 	dbref	last_network_owner;	/* The last network owner who had network issues */	
 	FILE	*f_logfile_name;
         int	log_chk_reboot;
+	int	blacklist_cnt;
+	int	wipe_state;	/* do_wipe state counter */
+	int	includecnt;	/* @include count */
+	int	includenest;	/* @include nest count */
+        BLACKLIST *bl_list; 	/* The black list */
 #else
 	int	logging;	/* Are we in the middle of logging? */
 	char	buffer[256];	/* A buffer for holding temp stuff */

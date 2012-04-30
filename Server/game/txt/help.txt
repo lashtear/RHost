@@ -22,7 +22,7 @@
   
   If there are any errors in the help text, please notify a Wizard.
   An HTML version of all the help contained here is available at
-  http://rhost.mybis.com/autohelp/help.html
+  http://rhost.blueaether.com/autohelp/help.html
   
 & +help
   If enabled (please check @list options), this will work just like normal
@@ -49,14 +49,14 @@
   
   @@           @break       @chown       @clone       @create      @decompile
   @destroy     @dig         @doing       @dolist      @drain       @edit 
-  @emit        @entrances   @femit       @find        @force       @fpose    
-  @fsay        @halt        @last        @link        @list        @listmotd 
-  @lock        @mvattr      @name        @notify      @oemit       @open    
-  @parent      @password    @pemit       @ps          @quota       @register 
-  @robot       @search      @set         @stats       @sweep       @switch   
-  @teleport    @trigger     @unlink      @unlock      @verb        @wait     
-  @wipe        @mailsig     @wall        @hide        @program     @quitprogram
-  @extansi     @eval
+  @emit        @entrances   @eval        @extansi     @femit       @find      
+  @force       @fpose       @fsay        @halt        @hide        @include
+  @last        @link        @list        @listmotd    @lock        @mvattr    
+  @name        @notify      @oemit       @open        @parent      @password  
+  @pemit       @program     @protect     @ps          @quitprogram @quota     
+  @register    @robot       @search      @set         @skip        @stats     
+  @sudo        @sweep       @switch      @teleport    @trigger     @unlink    
+  @unlock      @verb        @wait        @wipe        @mailsig     @wall       
   
 { 'help commands2' for more (attribute-commands) }
 & commands2
@@ -574,6 +574,39 @@
   See Also: look, @decompile, VISUAL, ATTRIBUTE OWNERSHIP, FLAG LIST,
             ATTRIBUTE FLAGs
   
+  
+& @protect
+  Command: @protect[/<switch>] [<player-name>]
+  
+  This command 'protects' your current user name from being used by anyone
+  else.  Essentially this 'locks in' your name so that if you ever switch
+  your name to something else, no one else will be able to use the name
+  that you have marked for protection.  You have full access to any name
+  you protect.  You can only protect your currently active name.  You may
+  delete any name you, yourself, have protected.  Wizards may remove any
+  protected name.  Immortals bypass protected names.
+  
+  Switches available:
+    /list    - (default) - list the names you current have protected.  This
+               does not take any arguments.
+    /add     - Add your current name to your protected name list.  This does
+               not take any arguments.
+    /del     - Remove the specified name from your protected name list.  This
+               requires an argument.
+    /alias   - Adds the protected name as an alias.  This will work like 
+               @alias with regards to player lookups.
+    /unalias - This removes the protected name as an alias.  You can not
+               remove the active playername as an alias.
+  
+  Examples:
+    > say name(me)
+    You say "Bob"
+    > @protect/add
+    Your current name has been added to your protect list.
+    > @protect/del Bob
+    You have successfully deleted 'Bob' from your protect list.
+  
+  See Also: @name, @alias, listprotection()
   
 & @program
   Command: @program <player>=<obj/attr>[:<prefix>]
@@ -1914,7 +1947,8 @@
     > testme 0
       Before assert
   
-  See Also: $-COMMAND, @@, @break
+  See Also: $-COMMAND, @@, @break, @skip
+
 & @break
   Command: @break <value> [=<command(s)>]
   
@@ -1935,7 +1969,7 @@
     > testme 1
       Before break
   
-  See Also: $-COMMAND, @@, @assert
+  See Also: $-COMMAND, @@, @assert, @skip
   
 & @chown
   Command: @chown <object>[=<player>]
@@ -2011,7 +2045,7 @@
   and a way to allow better data handling of the database as a whole.
   
   For more help on what @cluster can do, please refer to the following
-  switches available.  Individidual help is availalbe with 
+  switches available.  Individidual help is available with 
   'help @cluster <switch>'
   
   Switch      Description                Switch        Description
@@ -2023,6 +2057,7 @@
     /set    - set/unset attr on cluster  /repair     - repair cluster
     /grep   - grep cluster for match     /reaction   - edit action on cluster
     /cut    - 'cut' dbref# from cluster  /trigger    - trigger attr in cluster
+    /func   - Specify function action
   
   See Also:  clusters, cluster functions, cluster commands, >
 
@@ -2125,14 +2160,21 @@
   
   See Also:  clusters, cluster functions, cluster commands, >
 
+& @cluster func
+& @cluster action func
+& @cluster func action
 & @cluster action
   Command: @cluster/action <cluster object>=<string>
+           @cluster/action/func <cluster object>=<string>
   
   The action switch sets the action that will be executed on the cluster
   once the threshhold value has been reached.  The threshhold value
   is defined as the LOWEST attribute count on any item currently in
   the cluster.  The action is only executed once every 10 seconds to
   avoid recursive based attacks.
+  
+  The /func switch will set the FUNCTION action instead of normal action.
+  The function action has precedence over the normal action.
   
   Example:
     > @cluster/action #3683=@pemit [owner(me)]=Triggered!
@@ -2547,7 +2589,7 @@
   do.  If the victim is specified by number, you may use an alternate form
   of the command, '#<number> <command>'.
   
-  See Also: puppets, #
+  See Also: puppets, #, @trigger, @include
   
 & @fpose
   Command: @fpose[/<switches>] <object>=<message>
@@ -3423,7 +3465,8 @@
   See '@list options' as to whether or not a player name may contain 
   spaces.  The default for RhostMUSH is to disallow spaces in player names.
   
-  See Also: name(), @list options, @alias, @ansiname, @extansi, @caption
+  See Also: name(), @protect, @list options, @alias, @ansiname, @extansi, 
+            @caption
   
 & @notify
   Command: @notify[/<switches>] <object>[=<count|pid>]
@@ -3950,12 +3993,21 @@
   object becomes the enactor and the positional parameters %0 through %9
   are set to the supplied parameters.  If a @charges attribute exists on 
   the object being triggered, that attribute is reduced by one and when
-  it reaches 0, can no longer be triggered.
+  it reaches 0, can no longer be triggered.  You may specify the /command
+  switch to trigger attributes that start with $command sequences.  This
+  switch is ignored on attributes without $command sequences.
   
   The following switches exist for @trigger:
-      /quiet - Don't report the 'trigger' message when triggering.  
+      /quiet   - Don't report the 'trigger' message when triggering.  
+      /command - Trigger attributes that are $command/^listen attributes.
   
-  See Also: LOOPING, u()
+  Examples:
+    > @va me=$foo:@emit whee
+      Set
+    > @tr/quiet/command me/va
+      whee
+  
+  See Also: LOOPING, u(), @include
   
 & @unlink
   Command: @unlink <room/exit>
@@ -4419,7 +4471,7 @@
   Optional switches are /quiet to suppress output or /noisy to give 
   verbose output.
   
-  See Also: @name 
+  See Also: @name, @protect, listprotection()
   
 & @amhear
   Command: @amhear[/<switch>] <object> = <command-list>
@@ -5269,6 +5321,97 @@
   
   See Also: @away, @reject, page
   
+& @sudo
+  Command: @sudo <target>=<command>
+  
+  The @sudo allows you to execute a command through the target.  This is done
+  through the normal command processor and while similiar permissions to
+  @force, does not suffer from the queue delay.  You can not nest @sudo nor
+  can you @sudo to something you have no control over.  @sudo performs the
+  action according to the target's viewpoint, including location.  @sudo
+  only works on a single command.  If you wish to @sudo multiple commands,
+  use in junction with @include.
+  
+  Examples:
+    > @sudo *player=say boo
+    Player says "boo"
+    > @va *player=say boo;say baa
+    > @sudo *player=@include me/va  (notice it triggers @va based on target)
+    Player says "boo"
+    Player says "baa"
+  
+  See Also: @include, @force, @trigger, @skip 
+  
+& @skip
+  Command: @skip <boolean expression>=<command>
+  
+  The @skip command 'skips' the command from being executed if the boolean 
+  logic presented to @skip is true.  The command will be processed in the
+  normal queue and not executed out of order.  Any value other than '0'
+  is considered 'true' and not a true boolean.  This only processes a single
+  command.  If multiple commands are required, please use @include.
+  
+  Examples:
+    > @wait 0={think 1;think 2;@skip 0=think 3;think 4}
+    1
+    2
+    3
+    4
+    > @wait 0={think 1;think 2;@skip 1=think 3;think 4}
+    1
+    2
+    4
+  
+  See Also: @include, @force, @trigger, @skip, @break, @assert, @switch
+
+& @include
+  Command: @include[/<switch>] <object>/<attr> [=<arg1>,<arg2>,...,<argN>]
+  
+  The @include command can only be issued in a queue.  Ergo, if it is to be 
+  issued at the player command line, it must be queued first (like with @wait)
+  
+  The @include command will insert, at the location of the @include, any 
+  commands that were stored in the specified attribute on the specified 
+  object.  You must have control over the object and be able to see the
+  attribute to be able to fetch the information.  This passes all the standard
+  arguments (%0-%9) and can be overridden by arguments you pass to it.  After
+  the @included text, the %0-%9 variables will return to what it was prior
+  to the @include.
+  
+  This behaves similar to @trigger, except it will insert the commands in
+  order and not queue them up.
+  
+  @include honors @break/@assert.  You can have at most 10 @includes.  You
+  can only nest to 3 levels deep.
+  
+  The following switches exist for @include:
+    /command - bypass the $command/^listen portion of the attribute.
+    
+  {see @include2 for examples}
+
+& @include2 
+  (CONTINUED)
+  Command: @include[/<switch>] <object>/<attr> [=<arg1>,<arg2>,...,<argN>]
+  
+  Example:
+    > @va me=think inny1;think inny2: %0
+    Set.
+    > @vb me=$fnord *:think test1;@include me/va;think test2
+    Set.
+    > @vc me=$fnord2 *:think test1;@include me/va=bah!;think test2
+    > fnord boo!
+    test1
+    inny1
+    inny2: boo!
+    test2
+    > fnord2 boo!
+    test1
+    inny1
+    inny2: bah!
+    test2
+  
+  See Also: @trigger, @force, @sudo, @skip
+
 & @infilter
   Command: @infilter[/<switch>] <object> = <pattern>[, <pattern>...]
   Attribute: Infilter
@@ -6417,7 +6560,9 @@
   See Also: LINK_OK
   
 & AUDITORIUM
-  AUDITORIUM([a])   If a room or location is set AUDITORIUM, it checks
+  Flag: AUDITORIUM([a])   
+  
+  If a room or location is set AUDITORIUM, it checks
   the location's SpeechLock to see if you have permission to talk in
   that room otherwise it will not let you.  It stops @oemits, @emits,
   says, @pemit/contents, poses, and related commands.
@@ -6425,7 +6570,9 @@
   See Also: @lock, @sfail, @asfail
   
 & SIDEFX
-  SIDEFX([s])  If set on the target, the target is gained the ability
+  Flag: SIDEFX([s])  
+  
+  If set on the target, the target is gained the ability
   to be able to execute (and use) side-effects.  Without this flag,
   it is impossible to use side-effects.  
   
@@ -6442,7 +6589,9 @@
   or not on the RhostMUSH you are on.
   
 & BLIND
-  BLIND([g])  This flag, when set on a room, will make it so arrival
+  Flag: BLIND([g])  
+  
+  This flag, when set on a room, will make it so arrival
   or leaving messages, on that room, are not seen.  If it is on an
   exit, then any movement through that exit will not show the arrived
   or left messages.  Again, this flag is only useful for locations
@@ -6454,49 +6603,103 @@
          @list options to see if it's in effect or not.
   
 & SHOWFAILCMD
-  SHOWFAILCMD([f])  This flag, when set on an item, will return the 
+  Flag: SHOWFAILCMD([f])  
+  
+  This flag, when set on an item, will return the 
   appropiate @ufail messages (ufail, aufail, oufail), if there is a
   matching $command and the object is uselocked against you.
   
 & BOUNCE
-  BOUNCE([o])  This flag redirects the output that the target receives
+& BOUNCEFORWARD
+  Flag: BOUNCE([o])  
+  
+  This flag redirects the output that the target receives
   and sends it to all of it's contents.  This is handy if you don't want
   to mess with @listens or @forwards.  This allows players to have 
   'listens' without having to enable 'player_listen' which can be 
   dangerous.
   
+  The target set BOUNCE may have a BOUNCEFORWARD attribute that will
+  redirect everything that object would have seen to the list of
+  dbref#'s specified in BOUNCEFORWARD.  The list must be dref#'s
+  and valid player objects.  Be aware that the source forwarding
+  notifies the targets in the BOUNCEFORWARD where the text is
+  originating from, so no abusing it :)
+  
 & MARKER0
-  MARKER0([0])  This flag is a marker flag.  
+  Flag: MARKER0([0])  
+  
+  This flag is a marker flag.  
+  By default only #1 may set or unset it.  To change permissions
+  of this flag, use the @flagdef command (in wizhelp).
   
 & MARKER1
-  MARKER1([1])  This flag is a marker flag. 
+  Flag: MARKER1([1])  
+  
+  This flag is a marker flag. 
+  By default only #1 may set or unset it.  To change permissions
+  of this flag, use the @flagdef command (in wizhelp).
   
 & MARKER2
-  MARKER2([2])  This flag is a marker flag.  
+  Flag: MARKER2([2])
+  
+  This flag is a marker flag.  
+  By default only #1 may set or unset it.  To change permissions
+  of this flag, use the @flagdef command (in wizhelp).
   
 & MARKER3
-  MARKER3([3])  This flag is a marker flag.  
+  Flag: MARKER3([3])  
+  
+  This flag is a marker flag.  
+  By default only #1 may set or unset it.  To change permissions
+  of this flag, use the @flagdef command (in wizhelp).
   
 & MARKER4
-  MARKER4([4])  This flag is a marker flag.  
+  Flag: MARKER4([4])  
+  
+  This flag is a marker flag.  
+  By default only #1 may set or unset it.  To change permissions
+  of this flag, use the @flagdef command (in wizhelp).
   
 & MARKER5
-  MARKER5([5])  This flag is a marker flag.  
+  Flag: MARKER5([5])  
+  
+  This flag is a marker flag.  
+  By default only #1 may set or unset it.  To change permissions
+  of this flag, use the @flagdef command (in wizhelp).
   
 & MARKER6
-  MARKER6([6])  This flag is a marker flag.  
+  Flag: MARKER6([6])  
+  
+  This flag is a marker flag.  
+  By default only #1 may set or unset it.  To change permissions
+  of this flag, use the @flagdef command (in wizhelp).
   
 & MARKER7
-  MARKER7([7])  This flag is a marker flag.  
+  Flag: MARKER7([7])  
+  
+  This flag is a marker flag.  
+  By default only #1 may set or unset it.  To change permissions
+  of this flag, use the @flagdef command (in wizhelp).
   
 & MARKER8
-  MARKER8([8])  This flag is a marker flag.  
+  Flag: MARKER8([8])  
+  
+  This flag is a marker flag.  
+  By default only #1 may set or unset it.  To change permissions
+  of this flag, use the @flagdef command (in wizhelp).
   
 & MARKER9
-  MARKER9([9])  This flag is a marker flag.  
+  Flag: MARKER9([9])  
+  
+  This flag is a marker flag.  
+  By default only #1 may set or unset it.  To change permissions
+  of this flag, use the @flagdef command (in wizhelp).
   
 & BYEROOM
-  BYEROOM(=)  This flag, when set on rooms, is meant to depict that your
+  Flag: BYEROOM(=)  
+  
+  This flag, when set on rooms, is meant to depict that your
   room is about to be destroyed.  This is used instead of the GOING 
   flag as the server has been heavily modified and now will allow
   for one thing the recovery of destroyed players/rooms/things under
@@ -6505,7 +6708,9 @@
   See Also: GOING, @destroy
   
 & COUNCILOR
-  COUNCILOR(a)  This flag, when set on players, will allow them most
+  Flag: COUNCILOR(a)  
+  
+  This flag, when set on players, will allow them most
   wizard powers and the ability to effect anything equal to or less
   in power.  They can basically effect anything within their power
   by #<object> or *<player>.  Only ROYALTY or SUPER-ROYALTY can
@@ -6514,7 +6719,9 @@
   See Also: GUILDMASTER, ARCHITECT, ROYALTY, IMMORTAL
   
 & CHOWN_OK
-  CHOWN_OK   This flag, when set, allows you to transfer ownership to
+  Flag: CHOWN_OK(C)
+  
+  This flag, when set, allows you to transfer ownership to
   another player. To set it, you must be carrying the object. You 
   also have to be in the room if you want to set this flag on rooms 
   or exits.  After this flag is set, the new player may gain 
@@ -6523,14 +6730,18 @@
   See Also: @chown
   
 & CONNECTED
-  CONNECTED   This flag applies only to players and it shows if the 
+  Flag: CONNECTED(c)   
+  
+  This flag applies only to players and it shows if the 
   player is connected or not. Thus, each time you are connected to 
   the game, you should see the 'c' flag set, otherwise, you are DEAD!
   You cannot reset this flag, and it is used internally by the code 
   for things like tabulating players for the WHO list, etc.
   
 & DARK
-  DARK(D)   If a room is DARK, then no items are shown when a person 
+  Flag: DARK(D)   
+  
+  If a room is DARK, then no items are shown when a person 
   'looks' there. If a thing is DARK, then "look" does not list that 
   object in the room's Contents:, and if an exit is DARK, it doesn't 
   show up in the Obvious Exits: list.  Puppets and objects that can 
@@ -6549,7 +6760,9 @@
   See Also: UNFINDABLE, @sweep, look, examine
   
 & DESTROY_OK
-  DESTROY_OK(d)   When set on an object, it allows any player to destroy
+  DESTROY_OK(d)   
+  
+  When set on an object, it allows any player to destroy
   it as long as the object is not locked against them. This is good 
   for things like notes, whereby the recipient can destroy the note 
   after reading it, instead of having to look for you to destroy it.
@@ -6560,7 +6773,9 @@
   See Also: @destroy, SAFE, INDESTRUCTIBLE
   
 & DOORED
-  DOORED([R])  This is used in junction with the @door command.  This
+  Flag: DOORED([R])  
+  
+  This is used in junction with the @door command.  This
   sets it so that you will receive no output from the MUSH while you
   are in the external door. (This can be overridden with wizard
   broadcasts for security/information reasons)
@@ -6568,7 +6783,9 @@
   See Also: @door
   
 & ENTER_OK
-  ENTER_OK(e)   If an object or person is ENTER_OK, other players may 
+  Flag: ENTER_OK(e)   
+  
+  If an object or person is ENTER_OK, other players may 
   enter the object or person by using 'enter <object/person>. Players
   must also have the ENTER_OK set if they wish to be able to receive 
   things given to them by other players via the 
@@ -6577,7 +6794,9 @@
   See Also: enter, give
   
 & GOING
-  GOING(G)  Used internally for the @destroy command, it is set on 
+  Flag: GOING(G)  
+  
+  Used internally for the @destroy command, it is set on 
   anything that can be recycled. In the event that a player decides they 
   don't want to destroy the room after all then they can unset the BYEROOM
   flag.  Due to server modifications, you would unset the BYEROOM
@@ -6589,25 +6808,32 @@
   See Also: BYEROOM, @destroy
   
 & HAVEN
-  HAVEN(H)  @set here=haven;@set me=haven. If a location is HAVEN, you 
-  cannot kill in that location.  The HAVEN flag no longer blocks pages or
-  @pemits, use @lock/page instead.
- 
+  Flag: HAVEN(H)  
+   
+  If a location is HAVEN, you cannot kill in that location.  The HAVEN flag
+  no longer blocks pages or @pemits, use @lock/page instead.
+   
   See Also: @lock
   
 & KEY
-  KEY(K)  When set on an object prevents puppets from picking it up.
+  Flag: Flag: KEY(K)  
+  
+  When set on an object prevents puppets from picking it up.
   
   See Also: PUPPET, MONITOR
   
 & LINK_OK
-  LINK_OK(L)  If a room is LINK_OK, anyone can link exits to it (but 
+  Flag: LINK_OK(L)  
+  
+  If a room is LINK_OK, anyone can link exits to it (but 
   still not from it). It has no meaning for people, things, or exits.
   
   See Also: @link
   
 & UNFINDABLE
-  UNFINDABLE(U) If a player is set UNFINDABLE, he cannot be found by 
+  Flag: UNFINDABLE(U) 
+  
+  If a player is set UNFINDABLE, he cannot be found by 
   the loc() or room() functions.  Bummer.
   
   If a room is set UNFINDABLE, players in that room (or inside objects
@@ -6616,7 +6842,9 @@
   See Also: DARK
   
 & FLOATING
-  FLOATING(F) If a room is set floating, you will not be notified every 10 
+  Flag: FLOATING(F) 
+  
+  If a room is set floating, you will not be notified every 10 
   minutes or so that you have a disconnected room.
   
   If the player is set FLOATING, then they will receive no floating 
@@ -6628,10 +6856,10 @@
   See Also: NOTIFY_LINK
   
 & NOCOMMAND
-  See NO_COMMAND
-  
 & NO_COMMAND
-  NO_COMMAND([c])  If an object is set NO_COMMAND, all $commands and listens
+  Flag: NO_COMMAND([c])  
+  
+  If an object is set NO_COMMAND, all $commands and listens
   will no longer function on that object.
   
   This is aliased to 'NOCOMMAND' for compatibility.
@@ -6639,10 +6867,10 @@
   See Also: $-COMMANDS, ARBITRARY COMMANDS
   
 & NOUNDERLINE
-  See NO_UNDERLINE
-  
 & NO_UNDERLINE
-  NO_UNDERLINE([u])   When set on a player, it prevents that user from
+  Flag: NO_UNDERLINE([u])   
+  
+  When set on a player, it prevents that user from
   seeing (being annoyed by and/or having their win32 client program break)
   the underline/underscore ansi sequence.  This is the 'u' character with
   ansi().  Ex: ansi(u,annoyance)
@@ -6654,10 +6882,10 @@
   See Also: ANSI, ANSICOLOR, NO_FLASH, ansi()
   
 & NOFLASH
-  See NO_FLASH
-  
 & NO_FLASH
-  NO_FLASH(-)   When set on a player, it prevents that user from seeing
+  Flag: NO_FLASH(-)   
+  
+  When set on a player, it prevents that user from seeing
   (being annoyed by) the ansi flashing sequence done by the 'f'
   argument to ansi(). Ex: ansi(f,annoyance)
   
@@ -6668,7 +6896,9 @@
   See Also: ANSI, ANSICOLOR, NO_UNDERLINE, ansi()
   
 & OPAQUE
-  OPAQUE(O)   When set on a player, it prevents other players from 
+  Flag: OPAQUE(O)   
+  
+  When set on a player, it prevents other players from 
   seeing what you are carrying in your inventory. Only exception is 
   when the object you are carrying belongs to the other player 
   looking at you.
@@ -6676,12 +6906,14 @@
   See Also: look
   
 & THING
-  Type:
+  Type: THING(T)
   A thing is a type that is neither exit, room, or player type.  It is
   something that can both be carried and which can carry something.
   
 & PLAYER
-  PLAYER(P)  The PLAYER flag identifies you as a player. This flag cannot
+  Type: PLAYER(P)  
+  
+  The PLAYER flag identifies you as a player. This flag cannot
   be reset by any player, not even a Wizard (not, yet, anyway 
   *grin*).  It is used mainly by the mush code to identify your 
   commands, check for validity of commands or locks etc. Generally, 
@@ -6690,13 +6922,17 @@
   See Also: @list, @name, FLAG LIST
   
 & JUMP_OK
-  JUMP_OK(J)  When a room or thing is set JUMP_OK, then that location can
+  Flag: JUMP_OK(J)  
+  
+  When a room or thing is set JUMP_OK, then that location can
   be teleported into by anyone. See @teleport.
   
   See Also: @teleport, ABODE
   
 & PRIVATE
-  PRIVATE([P])  The private flag when set on EXITS makes them so that they
+  Flag: PRIVATE([P])  
+  
+  The private flag when set on EXITS makes them so that they
   are not inherited.  In other words, if you wanted to parent one room
   to another room, but didn't want a given exit to be inherited with
   the room and it's code, you would set the exit PRIVATE and it no longer
@@ -6705,13 +6941,17 @@
   See Also: @parent, @open
   
 & PUPPET
-  PUPPET(p)   @set <object> = puppet. Causes an object to grow eyes and 
-  ears, and relay all it sees and hears to its owner.  
+  Flag: PUPPET(p)   
+  
+  Causes an object to grow eyes and ears, and relay all it sees 
+  and hears to its owner.  
   
   See Also: @force, PUPPETS, #
   
 & ROOM
-  ROOM(R)   This flag is automatically set on rooms when you @dig a new
+  Type: ROOM(R)   
+  
+  This flag is automatically set on rooms when you @dig a new
   room. It cannot be changed. Rooms have the added advantage that 
   they can be saved from destruction by setting the room to !BYEROOM
   
@@ -6723,7 +6963,9 @@
   See Also: BYEROOM, @dig
   
 & VISUAL
-  VISUAL(V)  The flag a lot of players have been waiting for. When set on
+  Flag: VISUAL(V)  
+  
+  The flag a lot of players have been waiting for. When set on
   your object, it allows other players to examine it and see all the
   object's attributes as if they owned the object. They cannot make 
   any changes to the object.  This was previously called SEE_OK in
@@ -6732,20 +6974,26 @@
   See Also: ATTRIBUTE FLAGS
   
 & QUIET
-  QUIET(Q)  This flag when set on yourself prevents you from hearing 
+  Flag: QUIET(Q)  
+  
+  This flag when set on yourself prevents you from hearing 
   the 'set' or 'triggered' messages from any objects you own.  When 
   set on an object, only that object will not relay its messages.
   
   See Also: @set, &
   
 & HALTED
-  HALTED(h)  While this flag is set, the object cannot perform any mush 
+  Flag: HALTED(h)  
+  
+  While this flag is set, the object cannot perform any mush 
   actions, listen, be triggered, etc.
   
   See Also: NOCOMMAND
   
 & STICKY
-  STICKY(S) If a thing is STICKY, it goes home when dropped 
+  Flag: STICKY(S) 
+  
+  If a thing is STICKY, it goes home when dropped 
   (See HOMES). If a room is STICKY, its drop-to is delayed until the 
   last person leaves (See DROP-TOs). Only meaningful for things and 
   rooms. 
@@ -6753,20 +7001,26 @@
   See Also: HOMES, DROP-TOS
   
 & TELOK
-  TELOK([T])   The TELOK flag is used to enable bitted players (staff)
+  Flag: TELOK([T])   
+  
+  The TELOK flag is used to enable bitted players (staff)
   the ability to set up so that they can be teleported around as if they
   were a mortal.  This is handy in testing code where @teleport is used.
   
   See Also: JUMP_OK, @teleport
   
 & TEMPLE
-  TEMPLE(T)  The TEMPLE flag is no longer a part of TinyMUSH. Check +help
+  Flag: TEMPLE(T)  
+  
+  The TEMPLE flag is no longer a part of RhostMUSH. Check +help
   for information on +sacrifice.
   
   See Also: score
   
 & ARCHITECT
-  ARCHITECT(B)  If a player is ARCHITECT, they have various wizard powers
+  Flag: ARCHITECT(B)  
+  
+  If a player is ARCHITECT, they have various wizard powers
   available to them and fewer restrictions to do things.  They can
   do anything equal to or less than their power using #<number> or
   *<player>.  Only ROYALTY, SUPER-ROYALTY, or #1 can set this flag
@@ -6775,7 +7029,9 @@
   See Also: GUILDMASTER, COUNCILOR, ROYALTY, IMMORTAL
   
 & ROYALTY
-  ROYALTY(W)   If a person is ROYALTY. they are a wizard, unkillable, 
+  Flag: ROYALTY(W)   
+  
+  If a person is ROYALTY. they are a wizard, unkillable, 
   subject to fewer restrictions, and able to use wizard commands.  
   In general, ROYALTY can do anything using #<number> or *<player>. 
   Only player #1 or SUPER-ROYALTY can set and unset the ROYALTY flag of 
@@ -6783,29 +7039,22 @@
   
   See Also: GUILDMASTER, ARCHITECT, COUNCILOR, IMMORTAL
   
-& IMMORTAL
-  SUPER-ROYALTY (IMMORTAL)(i)   This flag when set on a player allows them
-  to be a hybrid wizard.  They can basically do anything, see anything,
-  be anything.  The only thing they can not do is set or unset this flag
-  or directly affect #1.  It's generally wise if you don't annoy these
-  people.
-  
-  See Also: GUILDMASTER, ARCHITECT, COUNCILOR, ROYALTY
-  
 & SUPER-ROYALTY
-  SUPER-ROYALTY (IMMORTAL)(i)   This flag when set on a player allows them
-  to be a hybrid wizard.  They can basically do anything, see anything,
-  be anything.  The only thing they can not do is set or unset this flag
-  or directly affect #1.  It's generally wise if you don't annoy these
-  people.
+& IMMORTAL
+  Flag: SUPER-ROYALTY (IMMORTAL)(i)   
+  
+  This flag when set on a player allows them to be a hybrid wizard.  
+  They can basically do anything, see anything, be anything.  The 
+  only thing they can not do is set or unset this flag or directly 
+  affect #1.  It's generally wise if you don't annoy these people.
   
   See Also: GUILDMASTER, ARCHITECT, COUNCILOR, ROYALTY
   
 & NOWALLS
-  See NO_WALLS
-  
 & NO_WALLS
-  NO_WALLS(w)   This flag when set will quiet all @walls or announcements
+  Flag: NO_WALLS(w)   
+  
+  This flag when set will quiet all @walls or announcements
   heard by that player.  Note, important walls with the /no_prefix
   switch (ROYALTY and SUPER-ROYALTY only) will go through the NO_WALLS
   flag.
@@ -6813,7 +7062,9 @@
   See Also: NO_YELL, @wall
   
 & CLOAK
-  CLOAK(b)  This flag when set on a player will quiet all 'has arrived',
+  Flag: CLOAK(b)  
+  
+  This flag when set on a player will quiet all 'has arrived',
   'has left', 'has connected' and 'has disconnected' messages by that
   player.  Note, however, that that player still triggers action
   variables like @aenter.  This is settable by ROYALTY and SUPER-ROYALTY
@@ -6822,7 +7073,9 @@
   See Also: DARK, UNFINDABLE
   
 & FUBAR
-  FUBAR(f)  This flag when set permits the user to only pose and say.
+  Flag: FUBAR(f)  
+  
+  This flag when set permits the user to only pose and say.
   The user is incapable of doing anything else including QUIT.  Yet
   another consequence of annoying the wizards.  Settable by ROYALTY and
   SUPER-ROYALTY only.
@@ -6830,28 +7083,37 @@
   See Also: SLAVE
   
 & GUILDMASTER
-  GUILDMASTER(g)   This flag, when set on a player, allows that player a 
+  Flag: GUILDMASTER(g)   
+  
+  This flag, when set on a player, allows that player a 
   few extra permissions like @quota and examining other's objects.
   This flag is settable only by ROYALTY and SUPER-ROYALTY.
   
   See Also: ARCHITECT, COUNCILOR, ROYALTY, IMMORTAL
   
 & VERBOSE
-  VERBOSE(v)   This flag causes all commands executed by the object having
+  Flag: VERBOSE(v)   
+  
+  This flag causes all commands executed by the object having
   the flag to be sent to the owner of the object.  i.e.:
-  @create foo
-  @set foo=VERBOSE
-  @force foo="Hi.
-  foo] "Hi.
-  foo says "Hi."
+  
+      @create foo
+      @set foo=VERBOSE
+      @force foo="Hi.
+      foo] "Hi.
+      foo says "Hi."
   
   See Also: TRACE, PUPPET, trace()
   
 & CONTROL_OK
-  CONTROL_OK(z)  This flag currently serves no purpose within RhostMUSH.
+  Flag: CONTROL_OK(z)  
+  
+  This flag currently serves no purpose within RhostMUSH.
   
 & INHERIT
-  INHERIT(I)   Previously, Wizard-owned objects had wizard powers.  This was
+  Flag: INHERIT(I)   
+  
+  Previously, Wizard-owned objects had wizard powers.  This was
   a problem in many cases, so that behavior has changed.  Now, only Wizard
   objects or Wizard-owned Inherit-set objects have wizard powers.  Only
   players can set the Inherit flag, and the Inherit flag is reset during
@@ -6938,11 +7200,9 @@
   number of trace output lines that may be produced by an evaluation is limited
   to 200.  Bottom-up trace output is not limited.
   
-  See Also: VERBOSE, PUPPET, trace()
+  See Also: VERBOSE, PUPPET, trace(), chktrace()
 
 & NOSPOOF
-  See NO_SPOOF
-  
 & NO_SPOOF
   Flag: NO_SPOOF(N)
  
@@ -7033,7 +7293,7 @@
   See Also: @destroy, DESTROY_OK, INDESTRUCTABLE
   
 & TRANSPARENT
-  Flag: TRANSPARENT(t)
+  Flag: TRANSPARENT(T)
  
   If an exit is TRANSPARENT, then when you look at it you see the description
   of the room on the other side of the exit in addition to the description
@@ -7070,8 +7330,6 @@
   See Also: FUBAR
   
 & NOTEL
-  See NO_TEL
-  
 & NO_TEL
   Flag: NO_TEL(o)
  
@@ -7083,8 +7341,6 @@
   See Also: home, @teleport
  
 & NOYELL
-  See NO_YELL
-  
 & NO_YELL
   Flag: NO_YELL(y)
  
@@ -7580,7 +7836,7 @@
   (because it is unlinked or locked). You fail to use a room when you fail
   to look around (because it's locked).
   
-  See Also: get, look, @afail, @fail, @lock, @ofail, STRINGS
+  See Also: get, look, @afail, @fail, @lock, @ofail
   
 & FLAGS
   Topic: FLAGS
@@ -7602,21 +7858,21 @@
 & FLAG LIST
   Topic: FLAG LIST
  
-  Flag  Title        Flag  Title        Flag  Title        Flag  Title
+  Flag  Title        Flag  Title           Flag  Title        Flag  Title
   -------------------------------------------------------------------------
-    A - ABODE          L - LINK_OK        X - FREE           m - MYOPIC
-    B - ARCHITECT      M - MONITOR        Y - PARENT_OK      n - AUDIBLE
-    C - CHOWN_OK       N - NO_SPOOF       a - COUNCILOR      o - NO_TEL
-    D - DARK           O - OPAQUE         b - CLOAK          p - PUPPET
-    E - EXIT           P - PLAYER         c - CONNECTED      q - TERSE   
-    F - FLOATING       Q - QUIET          d - DESTROY_OK     r - ROBOT
-    G - GOING          R - ROOM           e - ENTER_OK       s - SAFE       
-    H - HAVEN          S - STICKY         f - FUBAR          t - TRANSPARENT
-    I - INHERIT        T - TRACE          g - GUILDMASTER    v - VERBOSE
-    J - JUMP_OK        U - UNFINDABLE     h - HALTED         w - NO_WALL
-    K - KEY            V - VISUAL         i - IMMORTAL       x - SLAVE      
-    ~ - INDESTRUCTIBLE W - ROYALTY        l - LIGHT          y - NO_YELL   
-    = - BYEROOM        < - ANSI           > - ANSICOLOR      z - CONTROL_OK
+    A - ABODE          L - LINK_OK           X - FREE           m - MYOPIC
+    B - ARCHITECT      M - MONITOR           Y - PARENT_OK      n - AUDIBLE
+    C - CHOWN_OK       N - NO_SPOOF          a - COUNCILOR      o - NO_TEL
+    D - DARK           O - OPAQUE            b - CLOAK          p - PUPPET
+    E - EXIT           P - PLAYER            c - CONNECTED      r - ROBOT
+    F - FLOATING       Q - QUIET             d - DESTROY_OK     s - SAFE 
+    G - GOING          R - ROOM              e - ENTER_OK       t - TERSE      
+    H - HAVEN          S - STICKY            f - FUBAR          v - VERBOSE
+    I - INHERIT        T - TRACE/TRANSPARENT g - GUILDMASTER    w - NO_WALLS
+    J - JUMP_OK        U - UNFINDABLE        h - HALTED         x - SLAVE   
+    K - KEY            V - VISUAL            i - IMMORTAL       y - NO_YELL    
+    ~ - INDESTRUCTIBLE W - ROYALTY           l - LIGHT          z - CONTROL_OK
+    = - BYEROOM        < - ANSI              > - ANSICOLOR      
     - - NO_FLASH
   
   See Also: flag list2, attribute flags
@@ -7626,17 +7882,21 @@
   
 & FLAG LIST2
   Topic: FLAG LIST2
- 
+   
   This is a list of flags in the secondary flags field, they are surrounded
   by []'s when you look at them.
- 
-    Z - ZONEMASTER     I - IC             C - COMBAT         D - DOORED
-    P - PRIVATE        a - AUDITORIUM     c - NO_COMMAND     T - TELOK
-    s - SIDEFX         $ - COMMANDS       0 - MARKER0        1 - MARKER1
-    2 - MARKER2        3 - MARKER3        4 - MARKER4        5 - MARKER5
-    6 - MARKER6        7 - MARKER7        8 - MARKER8        9 - MARKER9
-    o - BOUNCE         f - SHOWFAILCMD    u - NO_UNDERLINE   g - BLIND
- 
+   
+    D - DOORED         a - AUDITORIUM     s - SIDEFX
+    I - IC             c - NO_COMMAND     y - ZONEPARENT  
+    P - PRIVATE        f - SHOWFAILCMD    z - ZONECONTENTS
+    T - TELOK          g - BLIND          
+    X - COMBAT         o - BOUNCE
+    Z - ZONEMASTER     u - NO_UNDERLINE
+  
+    0 - MARKER0        1 - MARKER1        2 - MARKER2        3 - MARKER3
+    4 - MARKER4        5 - MARKER5        6 - MARKER6        7 - MARKER7
+    8 - MARKER8        9 - MARKER9        $ - COMMANDS
+  
   See Also: flag list, attribute flags, flag aliases
   
   For information on a particular flag, type 'help <flagname>'.
@@ -7737,7 +7997,7 @@
   VPAGE                   MAIL_NOPARSE            MUXPAGE
   NOZONEPARENT            NOGLOBPARENT            VARIABLE
   KEEPALIVE               NOISY                   ZONECMDCHK
-  ACCENTS                 MAILVALIDATE
+  ACCENTS                 MAILVALIDATE            SAFELOG
   
   For information on a particular toggle, type 'help <togglename>'.
   If the name of a toggle is similar to the name of another help
@@ -7793,25 +8053,27 @@
   Topic: FUNCTION LIST
  
   Help is available for the following functions:
-  
-  @@()                 ABS()              ACCENT()          ACOS()        
-  ADD()                AFTER()            AINDEX()          AIINDEX()         
-  ALPHAMAX()           ALPHAMIN()         AND()             ANDCHR()        
-  ANDFLAG()            ANDFLAGS()         ANSI()            APOSS()     
-  ART()                ASC()              ASIN()            ATAN()   
-  ATTRCNT()            AVG()              BEFORE()          BETWEEN()   
-  BITTYPE()            BOUND()            BRACKETS()        CAND()          
-  CAPSTR()             CASE()             CASEALL()         CAT()           
-  CEIL()               CENTER()           CHARIN()          CHAROUT()   
-  CHKREALITY()         CHOMP()            CHR()             CITER()    
-  CLONE()              CLUSTER_ATTRCNT()  CLUSTER_DEFAULT() CLUSTER_EDEFAULT() 
-  CLUSTER_GET()        CLUSTER_GET_EVAL() CLUSTER_GREP()    CLUSTER_HASATTR()
-  CLUSTER_LATTR()      CLUSTER_REGREP()   CLUSTER_REGREPI() CLUSTER_SET() 
-  CLUSTER_STATS()      CLUSTER_U()        CLUSTER_U2()      CLUSTER_U2DEFAULT()
-  CLUSTER_U2LDEFAULT() CLUSTER_U2LOCAL()  CLUSTER_UDEFAULT() CLUSTER_UEVAL() 
-  CLUSTER_ULDEFAULT()  CLUSTER_ULOCAL()   CLUSTER_VATTRCNT() CLUSTER_XGET()
-  CMDS()               COLUMNS()          COMP()            CON()         
-  CONFIG()             CONN()             CONTROLS()        CONVSECS()    
+ 
+ @@()                 ABS()              ACCENT()           ACOS()        
+ ADD()                AFTER()            AINDEX()           AIINDEX()         
+ ALPHAMAX()           ALPHAMIN()         AND()              ANDCHR()        
+ ANDFLAG()            ANDFLAGS()         ANSI()             APOSS()     
+ ART()                ASC()              ASIN()             ATAN()   
+ ATTRCNT()            AVG()              BEFORE()           BETWEEN()   
+ BITTYPE()            BOUND()            BRACKETS()         CAND()          
+ CAPSTR()             CASE()             CASEALL()          CAT()           
+ CEIL()               CENTER()           CHARIN()           CHAROUT()   
+ CHKREALITY()         CHKTRACE()         CHOMP()            CHR()             
+ CITER()              CLONE()            CLUSTER_ADD()      CLUSTER_ATTRCNT() 
+ CLUSTER_DEFAULT()    CLUSTER_EDEFAULT() CLUSTER_FLAGS()    CLUSTER_GET()     
+ CLUSTER_GET_EVAL()   CLUSTER_GREP()     CLUSTER_HASATTR()  CLUSTER_HASFLAG() 
+ CLUSTER_LATTR()      CLUSTER_REGREP()   CLUSTER_REGREPI()  CLUSTER_SET()     
+ CLUSTER_STATS()      CLUSTER_U()        CLUSTER_U2()       CLUSTER_U2DEFAULT()
+ CLUSTER_U2LDEFAULT() CLUSTER_U2LOCAL()  CLUSTER_UDEFAULT() CLUSTER_UEVAL()   
+ CLUSTER_ULDEFAULT()  CLUSTER_ULOCAL()   CLUSTER_VATTRCNT() CLUSTER_WIPE()    
+ CLUSTER_XGET()       CMDS()             COLUMNS()          COMP()            
+ CON()                CONFIG()           CONN()             CONTROLS()        
+ CONVSECS()    
   
 { 'help function list2' for more }
   
@@ -7846,29 +8108,29 @@
   
 & FUNCTION LIST3
     
-  LISTFLAGS()   LISTINTER()     LISTMATCH()   LISTNEWSGROUPS() LISTRLEVELS()
-  LISTTOGGLES() LISTUNION()     LIT()         LJC()            LJUST()       
-  LLOC()        LMAX()          LMIN()        LMUL()           LN()
-  LNOR()        LNUM()          LNUM2()       LOC()            LOCALFUNC() 
-  LOCALIZE()    LOCATE()        LOCK()        LOG()            LOR()       
-  LRAND()       LREPLACE()      LROOMS()      LSUB()           LT()
-  LTE()         LTOGGLES()      LWHO()        LXNOR()          LXOR()
-  LZONE()       MAILQUICK()     MAP()         MATCH()          MASK()  
-  MAX()         MEMBER()        MERGE()       MID()            MIN()  
-  MIX()         MOD()           MODULO()      MODIFYTIME()     MONEY()
-  MONEYNAME()   MOON()          MUDNAME()     MUL()            MUNGE()
-  NAME()        NAMEQ()         NAND()        NCOMP()          NEARBY()
-  NEQ()         NEXT()          NOR()         NOSTR()          NOT()
-  NOTCHR()      NPEMIT()        NSITER()      NUM()            NUMMATCH()
-  NULL()        NUMMEMBER()     NUMPOS()      NUMWILDMATCH()   OBJ()
-  OBJEVAL()     OEMIT()         OPEN()        OR()             ORCHR()
-  ORFLAG()      ORFLAGS()       OWNER()       PACK()           PARENMATCH()
-  PARENT()      PARSE()         PARSESTR()    PEDIT()          PEMIT()
-  PFIND()       PGREP()         PI()          PID()            PMATCH()
-  PORT()        POS()           POSS()        POWER()          POWER10()
-  PRINTF()      PROGRAMMER()    PTIMEFMT()    PUSHREGS()       QUOTA()
-  R()           RACE()          RAND()        RANDPOS()        RANDMATCH()
-  RANDEXTRACT() 
+  LISTFLAGS()   LISTINTER()     LISTMATCH()   LISTNEWSGROUPS() LISTPROTECTION()
+  LISTRLEVELS() LISTTOGGLES()   LISTUNION()   LIT()            LJC()          
+  LJUST()       LLOC()          LMAX()        LMIN()           LMUL()         
+  LN()          LNOR()          LNUM()        LNUM2()          LOC()          
+  LOCALFUNC()   LOCALIZE()      LOCATE()      LOCK()           LOG()          
+  LOR()         LRAND()         LREPLACE()    LROOMS()         LSUB()         
+  LT()          LTE()           LTOGGLES()    LWHO()           LXNOR()        
+  LXOR()        LZONE()         MAILQUICK()   MAP()            MATCH()        
+  MASK()        MAX()           MEMBER()      MERGE()          MID()          
+  MIN()         MIX()           MOD()         MODULO()         MODIFYTIME()   
+  MONEY()       MONEYNAME()     MOON()        MUDNAME()        MUL()          
+  MUNGE()       NAME()          NAMEQ()       NAND()           NCOMP()        
+  NEARBY()      NEQ()           NEXT()        NOR()            NOSTR()        
+  NOT()         NOTCHR()        NPEMIT()      NSITER()         NUM()          
+  NUMMATCH()    NULL()          NUMMEMBER()   NUMPOS()         NUMWILDMATCH() 
+  OBJ()         OBJEVAL()       OEMIT()       OPEN()           OR()           
+  ORCHR()       ORFLAG()        ORFLAGS()     OWNER()          PACK()         
+  PARENMATCH()  PARENT()        PARSE()       PARSESTR()       PEDIT()        
+  PEMIT()       PFIND()         PGREP()       PI()             PID()          
+  PMATCH()      PORT()          POS()         POSS()           POWER()        
+  POWER10()     PRINTF()        PRIVATIZE()   PROGRAMMER()     PTIMEFMT()   
+  PUSHREGS()    QUOTA()         R()           RACE()           RAND()  
+  RANDPOS()     RANDMATCH()     RANDEXTRACT() 
     
 { 'help function list4' for more }
  
@@ -7902,18 +8164,18 @@
 
 & FUNCTION LIST5
   
-
-  TRIM()          TRUNC()         TXLEVEL()       TYPE()         U() 
-  U2()            UCSTR()         UDEFAULT()      UDEFAULT2()    UEVAL()
-  ULDEFAULT()     U2LDEFAULT()    ULOCAL()        ULOCAL2()      UNPACK()
-  V()             VADD()          VALID()         VATTRCNT()     VCROSS()
-  VDIM()          VDOT()          VERSION()       VISIBLE()      VISIBLEMUX()
-  VMAG()          VMUL()          VSUB()          VUNIT()        WHERE()
-  WHILE()         WILDMATCH()     WIPE()          WORDPOS()      WORDS()       
-  WRAP()          WRAPCOLUMNS()   XCON()          XDEC()         XINC()        
-  XGET()          XNOR()          XOR()           XORCHR()       ZEMIT()       
-  ZFUN()          ZFUN2()         ZFUNDEFAULT()   ZFUN2DEFAULT() ZFUNEVAL()    
-  ZFUNLDEFAULT()  ZFUNL2DEFAULT() ZFUNLOCAL()     ZFUN2LOCAL()   ZWHO() 
+  TRIM()         TRUNC()         TXLEVEL()       TYPE()         U() 
+  U2()           UCSTR()         UDEFAULT()      UDEFAULT2()    UEVAL()
+  ULDEFAULT()    U2LDEFAULT()    ULOCAL()        ULOCAL2()      UNPACK()
+  V()            VADD()          VALID()         VATTRCNT()     VCROSS()
+  VDIM()         VDOT()          VERSION()       VISIBLE()      VISIBLEMUX()
+  VMAG()         VMUL()          VSUB()          VUNIT()        WHERE()
+  WHILE()        WILDMATCH()     WIPE()          WORDPOS()      WORDS()       
+  WRAP()         WRAPCOLUMNS()   WRITABLE()      XCON()         XDEC()       
+  XINC()         XGET()          XNOR()          XOR()          XORCHR()     
+  ZEMIT()        ZFUN()          ZFUN2()         ZFUNDEFAULT()  ZFUN2DEFAULT()
+  ZFUNEVAL()     ZFUNLDEFAULT()  ZFUNL2DEFAULT() ZFUNLOCAL()    ZFUN2LOCAL() 
+  ZWHO() 
   
 { 'help function aliases' for aliases on existing functions }
   
@@ -7924,7 +8186,7 @@
   
  FLIP() ----> reverse()   DIE() -------> dice()      IF() ---------> ifelse()
  MATCHALL() > totmatch()  LPARENT() ---> parents()   NONZERO() ----> ifelse()
- STRTRUNC() > trim(ljc()) SOUNDSLIKE() > soundlike() FILTERBOOL() -> filter()
+ STRTRUNC() > left()      SOUNDSLIKE() > soundlike() FILTERBOOL() -> filter()
  SUBEVAL() -> eval()      GREPI() -----> grep()      LANDBOOL() ---> land()
  ZONE() ----> lzone()     ELEMENT() ---> elements()  LORBOOL() ----> lor()
  LNORBOOL() > lnor()      ANDBOOL() ---> and()       ORBOOL() -----> or()
@@ -8001,9 +8263,9 @@
             See Also: help logical functions
   
   Miscellaneous:      ASC() CHR() ERROR() LOCALIZE() MOON() NAMEQ() NULL() 
-                      PARENMATCH() PID() PUSHREGS() R() SETQ() SETQ_OLD() 
-                      SETQMATCH() SETR() SETR_OLD() SOUNDEX() SOUNDLIKE() 
-                      TRACE()
+                      PARENMATCH() PID() PRIVATIZE() PUSHREGS() R() SETQ()
+                      SETQ_OLD() SETQMATCH() SETR() SETR_OLD() SOUNDEX() 
+                      SOUNDLIKE() TRACE()
             See Also: help miscellaneous functions
   
   Object Information: APOSS() ART() ATTRCNT() CONTROLS() DEFAULT() 
@@ -8015,7 +8277,7 @@
                       ORFLAGS() PARENT() PGREP() POSS() RACE() SHIFT() SUBJ() 
                       TYPE() U() U2() UDEFAULT() UDEFAULT2() UEVAL() 
                       ULDEFAULT() U2LDEFAULT() ULOCAL() ULOCAL2() V() 
-                      VATTRCNT() VISIBLE() VISIBLEMUX() XGET()
+                      VATTRCNT() VISIBLE() VISIBLEMUX() WRITABLE() XGET()
             See Also: help object information functions
   
   { 'help function classes4' for more }
@@ -8024,8 +8286,9 @@
   Topic: FUNCTION CLASSES <continued>
                              
   Player Information:  BITTYPE() CHARIN() CHAROUT() CMDS() CONN() HASQUOTA() 
-                       IDLE() INPROGRAM() ISHIDDEN() LWHO() MONEY() MONEYNAME()
-                       PORT() PROGRAMMER() QUOTA() TOTCMDS() 
+                       IDLE() INPROGRAM() ISHIDDEN() LISTPROTECTION() LWHO() 
+                       MONEY() MONEYNAME() PORT() PROGRAMMER() QUOTA() 
+                       TOTCMDS()
              See Also: help player information functions
   
   Reality Levels:      CHKREALITY() HASRXLEVEL() HASTXLEVEL() LISTRLEVELS() 
@@ -8098,14 +8361,16 @@
                       ZFUN2LOCAL() ZWHO()
             See Also: help zone functions
   
-  Cluster Functions:  CLUSTER_ATTRCNT() CLUSTER_DEFAULT() CLUSTER_EDEFAULT() 
-                      CLUSTER_GET() CLUSTER_GET_EVAL() CLUSTER_GREP() 
-                      CLUSTER_HASATTR() CLUSTER_LATTR() CLUSTER_REGREP() 
+  Cluster Functions:  CLUSTER_ADD() CLUSTER_ATTRCNT() CLUSTER_DEFAULT() 
+                      CLUSTER_EDEFAULT() CLUSTER_FLAGS() CLUSTER_GET() 
+                      CLUSTER_GET_EVAL() CLUSTER_GREP() CLUSTER_HASATTR() 
+                      CLUSTER_HASFLAG() CLUSTER_LATTR() CLUSTER_REGREP() 
                       CLUSTER_REGREPI() CLUSTER_SET() CLUSTER_STATS() 
                       CLUSTER_U() CLUSTER_U2() CLUSTER_U2DEFAULT() 
                       CLUSTER_U2LDEFAULT() CLUSTER_U2LOCAL() CLUSTER_UDEFAULT()
                       CLUSTER_UEVAL() CLUSTER_ULDEFAULT() CLUSTER_ULOCAL() 
-                      CLUSTER_VATTRCNT() CLUSTER_XGET(), ISCLUSTER()
+                      CLUSTER_VATTRCNT() CLUSTER_WIPE(), CLUSTER_XGET(), 
+                      ISCLUSTER()
             See Also: help cluster functions
 
   See Also: FLAG LIST
@@ -9101,7 +9366,7 @@
   You may not be able to retrieve information for objects that you do not
   own.  You may also check if the given flag exists on the ATTRIBUTE.
   For the TYPE of the item, (P, E, R), you need to use hastype().
- 
+   
   Example:
     > say hasflag(me, wizard)
     You say "0"
@@ -9225,6 +9490,8 @@
          & - process carrage returns and keep in same column field.  This
              will break up lines based on carrage returns (%r) and keep
              formatted into the same column specified in the format.
+         : - will specify filler character for what is between the ::'s.
+             example: :.:
       Value fields:
          1-3000 - format value to padd
          0 - if prepending a number, tells it to padd 0's.
@@ -9255,7 +9522,7 @@
     >@emit printf(this is a test: |$-15s|,test 1 2 3)
     this is a test: |test 1 2 3     |
   
-    >@emit printf(this is a test: |$-15s|,test %r1 %r2 %r3)
+    >@emit printf(this is a test: |$&-15s|,test %r1 %r2 %r3)
     this is a test: |test           |
                      1
                      2
@@ -9365,6 +9632,7 @@
         NOTE: 'n' will be any number from 1 to however many 'pages'
               So '1' would be first 400, '2' would be second 400, etc.
     l - List total pages and total zones (or zonemasters) of target.
+    ~ - [~#1-#2] list zones starting at #1 until count of #2.
      
   Example:
     > @set here=zonemaster
@@ -9595,8 +9863,10 @@
   
   See Also: left(), mid(), delete(), ljc(), rjc()
   
+& STRTRUNC()
 & LEFT()
   Function: left(<string>, <position>)
+   (Alias): strtrunc(<string>,<position>)
   
   Left will take a string and return the left-most position of characters
   from the string.
@@ -10238,6 +10508,28 @@
     
   See Also: listcommands(), listfunctions()
   
+& LISTPROTECTION()
+  Function: listprotection(<player> [,<key>,<delim>])
+  
+  This function will list all the 'protected names' (ergo @protect) that the
+  player has.  If no key is specified (or a 0 specified as key) it lists all
+  protected names.  The following keys exist:
+  
+    0 - list all protected names of the target player (default)
+    1 - list only the protected names that are marked as aliases.
+    2 - list only the protected names that are not marked as aliases.
+  
+  If the player is invalid, it returns an error, otherwise it returns an
+  empty string if nothing is found for that criteria.
+  
+  The default deliminator is a colon (:).
+  
+  Example:
+    > say listprotection(me)
+    You say "Bob|Bobby"
+  
+  See Also: @protect, @name, @alias
+
 & LIT()
   Function: lit(<string>)
   
@@ -10492,7 +10784,7 @@
   See Also: CHR()
   
 & sees()
-  Function: sees(<object>, <target>)
+  Function: sees(<object>, <target> [,<type>])
   
   This function returns true (1) if the object is able to see target at
   target's location.  Otherwise, it will return false (0).  You need to
@@ -10500,6 +10792,9 @@
   '0' will always be returned.  This will work similiar if you actually
   looked at the room.  Naturally, as you wouldn't see yourself, it'll
   return '0' for that condition.
+  
+  You may specify <type> as '1' if you wish to check for exits.  Normally
+  exits will be ignored.
   
   Examples:
     > look
@@ -10945,16 +11240,20 @@
   See Also: regrep(), grep(), pgrep()
 
 & REGEDIT()
-  Function: regedit(<string>, <regexp>, <replacement>)
+  Function: regedit(<str>, <regexp>, <repl>[, ... , <regexpN>, <replaceN>])
+            regeditlit(<str>, <regexp>, <repl>[, ... , <regexpN>, <replaceN>])
   
   This function is a version of edit() that uses regular expressions.
-  The part of <string> that matches the <regexp> is replaced by the
-  evaluated <replacement>, with $<number> in <replacement> expanded to the
-  corresponding matching sub-expression of <regexp>, with $0 the entire
+  The part of <str> that matches the <regexp> is replaced by the
+  evaluated <repl> (replacement), with $<number> in <replacement> expanded to
+  the corresponding matching sub-expression of <regexp>, with $0 the entire
   matched section. regediti() only replaces the first match and is
   case sensitive.  The <replacement> argument is evaluated once for 
   each match, allowing for more complex transformations than is possible 
   with straight replacement.
+  
+  The regeditlit() function works same as regedit() but does not evaluate 
+  the replaced values.
   
   Example:
   > say regedit(this test is the best string, (.)est, $1rash)
@@ -10965,15 +11264,19 @@
   See also: edit(), regmatch(), regediti(), regeditall(), regeditalli()
 
 & REGEDITALL()
-  Function: regeditall(<string>, <regexp>, <replacement>)
+  Function: regeditall(<str>, <regexp>, <repl>[,..., <regexpN>, <replaceN>])
+            regeditalllit(<str>, <regexp>, <repl>[,..., <regexpN>, <replaceN>])
   
   This function is a version of edit() that uses regular expressions.
-  The part of <string> that matches the <regexp> is replaced by the
-  evaluated <replacement>, with $<number> in <replacement> expanded to the
-  corresponding matching sub-expression of <regexp>, with $0 the entire
+  The part of <str> that matches the <regexp> is replaced by the
+  evaluated <repl> (replacement), with $<number> in <replacement> expanded to 
+  the corresponding matching sub-expression of <regexp>, with $0 the entire
   matched section.  regeditall() replaces all matches.  The <replacement> 
   argument is evaluated once for each match, allowing for more complex 
   transformations than is possible with straight replacement.  
+  
+  The regeditalllit() function works same as regeditall() but does not evaluate
+  the replaced values.
   
   Example:
   > say regeditall(this test is the best string, (.)est, $1rash)
@@ -10984,16 +11287,20 @@
   See also: edit(), regmatch(), regedit(), regediti(), regeditalli()
 
 & REGEDITI()
-  Function: regediti(<string>, <regexp>, <replacement>)
+  Function: regediti(<str>, <regexp>, <repl>[, ... , <regexpN>, <replaceN>])
+  Function: regeditilit(<str>, <regexp>, <repl>[, ... , <regexpN>, <replaceN>])
    
   This function is a version of edit() that uses regular expressions.
-  The part of <string> that matches the <regexp> is replaced by the
-  evaluated <replacement>, with $<number> in <replacement> expanded to the
-  corresponding matching sub-expression of <regexp>, with $0 the entire
+  The part of <str> that matches the <regexp> is replaced by the
+  evaluated <repl> (replacement), with $<number> in <replacement> expanded to 
+  the corresponding matching sub-expression of <regexp>, with $0 the entire
   matched section. regediti() only replaces the first match and is case
   insensitive.  The <replacement> argument is evaluated once for
   each match, allowing for more complex transformations than is
   possible with straight replacement.
+  
+  The regeditilit() function works same as regediti() but does not evaluate 
+  the replaced values.
   
   Example:
   > say regediti(this teSt is the best string, (.)est, $1rash)
@@ -11004,16 +11311,20 @@
   See also: edit(), regmatch(), regedit(), regeditall(), regeditalli()
 
 & REGEDITALLI()
-  Function: regeditalli(<string>, <regexp>, <replacement>)
+  Function: regeditalli(<str>, <regexp>, <repl>[,...,<regexpN>,<replaceN>])
+            regeditallilit(<str>, <regexp>, <repl>[,...,<regexpN>,<replaceN>])
   
   This function is a version of edit() that uses regular expressions.
-  The part of <string> that matches the <regexp> is replaced by the
-  evaluated <replacement>, with $<number> in <replacement> expanded to the
-  corresponding matching sub-expression of <regexp>, with $0 the entire
+  The part of <str> that matches the <regexp> is replaced by the
+  evaluated <repl> (replacement), with $<number> in <replacement> expanded to 
+  the corresponding matching sub-expression of <regexp>, with $0 the entire
   matched section.  regeditalli() replaces all matches and is case 
   insensitive. The <replacement> argument is evaluated once for
   each match, allowing for more complex transformations than is
   possible with straight replacement.
+  
+  The regeditallilit() function works same as regeditalli() but does not 
+  evaluate the replaced values.
    
   Example:
   > say regeditalli(this teSt is the best string, (.)est, $1rash)
@@ -11022,6 +11333,18 @@
   You say "this Trash is the Brash string"
   
   See also: edit(), regmatch(), regedit(), regediti(), regeditall() 
+
+& REGEDITLIT()
+  See regedit()
+
+& REGEDITILIT()
+  See regediti()
+
+& REGEDITALLLIT()
+  See regeditall()
+
+& REGEDITALLILIT()
+  See regeditalli()
 
 & REGMATCH()
   Function: regmatch(<string>,<regexp>[,<register list>])
@@ -11156,6 +11479,15 @@
 
   See Also: v()
 
+& CHKTRACE()
+  Function: chktrace()
+  
+  This function returns '1' (true) or '0' (false) if the parser is currently
+  in trace (debug) mode.  This is handy for dynamically enabling or disabling
+  trace on the fly.
+  
+  See Also: trace(), TRACE
+
 & TRACE()
   Function: trace(<value>)
   
@@ -11177,7 +11509,7 @@
   However, if the TRACE flag was set on the object prior to execution, then
   you would see trace output for everything up to the trace(0) call.
   
-  See Also: TRACE, VERBOSE, PUPPET 
+  See Also: TRACE, VERBOSE, PUPPET, chktrace()
   
 & MATCH()
   Function: match(<string>, <pattern>[, <delim>])
@@ -12184,6 +12516,23 @@
    
   See Also: startime(), secs(), rebootsecs(), reboottime()
   
+& WRITABLE()
+  Function: writable(<player>, <target>/<attrib>)
+  
+  This function checks if <player> can set attribute <attrib> on target player
+  <target>.  You must control <player> otherwise it returns a failure (0).
+  
+  If <player> or <target> does not exist, it will return a failure (0).
+  
+  If <attrib> does not exist, it will return a success, but only if the first
+  two conditions wouldn't cause a failure.
+  
+  Example:
+    > say writable(bob, fred/desc)
+    You say "0"
+  
+  See Also: set(), rset()
+
 & WRAP()
 Function: wrap(<txt>,<width>[,<just>,[<ltxt>[,<rtxt>[,<hanging>][,<jstcut>]]])
    
@@ -12199,6 +12548,8 @@ to the next line, overriding the logic of the word wrapping.
      center    - all text is wrapped to the center
      justified - all text is 'stretched' from the left to right margen.
                  This has a newspaper like effect.
+     ignore    - all text is wrapped but padding is ignored.  This is useful
+                 to pass into other functions such as printf().
    
 The <ltxt> and <rtxt> specify text to insert as borders on either the left
 side or right side of each line. They default to nothing.
@@ -13038,7 +13389,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   Function: escapex(<string> [,<omission>])
   
   This functions exactly like escape(), except you may specify what characters
-  you wish to omit from being escaped through <omition>.
+  you wish to omit from being escaped through <omition>.  You may specify 'f'
+  in the omission to omit the first escape (backslash) from the string.
   
   Example:
     > say escapex(Hey, Sneak a peak at Wiz's desc... [get($1/desc)],\[\])
@@ -13221,6 +13573,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
     # - page (1, 2, etc) for attribute listing.  118 for 32byte attrs.
     > - find the alphanumerical largest attribute name.
     < - find the alphanumerical smallest attribute name.
+    ~ - [~#1-#2] list attribs starting at #1 until count of #2.
   
   { see 'help lattr2' to continue }
 
@@ -14366,6 +14719,25 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
    
   See Also:  ulocal2(), u(), u2(), uldefault(), u2ldefault(), setq(), r()
   
+& PRIVATIZE()
+  Function: privatize(<value>)
+  
+  This function, if enabled (1), will make it so all localized setq 
+  registers will be initialized to null upon calling the function.  This
+  will affect functions such as localize(), ulocal(), uzfun(), etc.
+  
+  Example:
+    > @va me=(before R0: [r(0)])[setq(0,internal)] --My R0:[r(0)]--
+    Set.
+    > say [setq(0,external)][r(0)][u(va)][r(0)]
+    You say "external--(before R0: external) My R0:internal--internal"
+    > say [setq(0,external)][r(0)][localize(u(va))][r(0)]
+    You say "external--(before R0: external) My R0:internal--external"
+    > say [privatize(1)][setq(0,external)][r(0)][localize(u(va))][r(0)]
+    You say "external--(before R0: ) My R0:internal--external"
+  
+  See Also: pushregs(), ulocal(), zfunlocal(), eval(), localize()
+
 & LOCALIZE()
   Function: localize(<string>)
   
@@ -14381,7 +14753,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
     > say [setq(0,external)][r(0)][localize(u(va))][r(0)]
     You say "external--My R0:internal--external"
   
-  See Also: pushregs(), ulocal(), zfunlocal(), eval()
+  See Also: pushregs(), ulocal(), zfunlocal(), eval(), privatize()
   
 & LOCALFUNC()
   Function: localfunc(<function-name>, <args>...)
@@ -14603,7 +14975,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
     > say [@@(this is a test[setq(0,test)])]- [r(0)]
     You say "- "
   
-  See Also: localize(), eval(), null()
+  See Also: localize(), eval(), null(), privatize()
   
 & NULL()
   Function: null(<string>)
@@ -14616,7 +14988,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
     > say [null(this is a test[setq(0,test)])]- [r(0)]
     You say "- test"
   
-  See Also: localize(), eval(), @@()
+  See Also: localize(), eval(), @@(), privatize()
   
 & STEP()
   Function: step([<obj>/]<attr>,<list>,<step size>[,<delim>[,<output delim>]])
@@ -15216,6 +15588,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
         NOTE: 'n' will be any number from 1 to however many 'pages'
               So '1' would be first 400, '2' would be second 400, etc.
     l - List total pages and total children of target.
+    ~ - [~#1-#2] list children starting at #1 until count of #2.
      
   Example:
   > @parent #10=#5
@@ -15274,7 +15647,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   > say set(me,safe)
   You say ""
   
-  See Also: @set, SIDEEFFECTS
+  See Also: rset(), writable(), @set, SIDEEFFECTS
   
 & RSET()
   Function: rset(<object>,<[!]<flag> [[!]<flag> [!]<flag> ...]>)
@@ -15298,7 +15671,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   > say rset(me,safe)
   You say "safe"
   
-  See Also: @set, SIDEEFFECTS
+  See Also: set(), writable(), @set, SIDEEFFECTS
   
 & toggle()
   Function: toggle(<object>,[!]<toggle>)
@@ -16466,7 +16839,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
     p    - show all player queue jobs (jobs currently being ran)
     o    - show all object queue jobs (jobs currently being ran)
   
-  <target> is an optional target to narrow down queue values.  Default is everyone.
+  <target> is an optional target to narrow down queue values.  The <target> 
+  may be a player or a process ID (PID).  Default is everyone.
   
   {help pid2 for examples}
 
@@ -17237,22 +17611,6 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   
   See Also: comp()
 
-& STRTRUNC()
-  Function: trim(ljc(<string>, <length>))
-  (alias)   strtrunc(<string>, <length>)     'Left Justify and Cut'
-  
-  This function pads a string with trailing blanks to left justify the 
-  <string> within a field of <length> characters. If <string> is longer 
-  than <length> it will be cut to fit within a field of <length> characters.
-   
-  Examples:
-    > say -[strtrunc(foo,6)]-
-    You say "-foo   -"
-    > say -[strtrunc(this is foo,6)]-
-    You say "-this i-"
-   
-  See Also: ljust(), ljc(), rjc(), rjust(), printf(), wrap()
- 
   
 & LJC()
   Function: ljc(<string>, <length> [,<fill>])     'Left Justify and Cut'
@@ -17295,7 +17653,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
  
   Returns a number from the following table based on the owner of <object>.
  
-    God             7
+    God (#1)        7
     Super-Royalty   6
     Royalty         5
     Councilor       4
@@ -17449,6 +17807,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   Function: setq(<number>,<string>[,<label>])
             setq(<label>,<string>[,<label>)
             setq(!,<string>,<label>)
+            setq(+,<string>,<label>)
  
   The setq() function is used to copy strings into local registers.
   It returns a null string; it is a purely "side effect" function.
@@ -17473,7 +17832,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   with r().  Labels can contain any character and must be 31 chars or less.
   You may then specify the label instead of the <number>.  Using '!' for the
   number/label specifies to reuse the label OR asign a label to the next
-  available register automatically.
+  available register automatically.  '+' will use the first  unnamed AND
+  unused register.  '!' just uses the first unnamed register.
    
   Example:
     > &TEST me=Test on [mudname()] at [time()].
@@ -17489,6 +17849,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   Function: setq_old(<number>,<string>[,<label>])
             setq_old(<label>,<string>[,<label>])
             setq_old(!,<string>,<label>)
+            setq_old(+,<string>,<label>)
   
   This functions exactly like setq(), except it is using the old MUSH 
   method of evaluation.  This tends to be less abraisive on braces and
@@ -17501,7 +17862,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   with r().  Labels can contain any character and must be 31 chars or less.
   You may then specify the label instead of the <number>.  Using '!' for the
   number/label specifies to reuse the label OR asign a label to the next
-  available register automatically.
+  available register automatically.  '+' will use the first unnamed AND
+  unused register.  '!' just uses the first unnamed register.
 
   See Also: setr_old(), setq(), setr(), nameq(), SETQ_TEMPLATE
   
@@ -17509,6 +17871,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   Function: setr(<number>,<string>[,<label>])
             setr(<label>,<string>[,<label>])
             setr(!,<string>,<label>)
+            setr(+,<string>,<label>)
  
   The setr() function is used to copy strings into local registers.
   Unlike setq(), it returns its <string> argument.
@@ -17524,7 +17887,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   with r().  Labels can contain any character and must be 31 chars or less.
   You may then specify the label instead of the <number>.  Using '!' for the
   number/label specifies to reuse the label OR asign a label to the next
-  available register automatically.
+  available register automatically.  '+' will use the first unnamed AND
+  unused register.  '!' just uses the first unnamed register.
    
   Example: 
     > &TEST me=Test on [mudname()] at [time()].
@@ -17538,6 +17902,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   Function: setr_old(<number>,<string>[,<label>])
             setr_old(<label>,<string>[,<label>])
             setr_old(!,<string>,<label>)
+            setr_old(+,<string>,<label>)
   
   This functions exactly like setr(), except it is using the old MUSH 
   method of evaluation.  This tends to be less abraisive on braces and
@@ -17550,7 +17915,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   with r().  Labels can contain any character and must be 31 chars or less.
   You may then specify the label instead of the <number>.  Using '!' for the
   number/label specifies to reuse the label OR asign a label to the next
-  available register automatically.
+  available register automatically.  '+' will use the first unnamed AND
+  unused register.  '!' just uses the first unnamed register.
   
   See Also: setq_old(), setq(), setr(), nameq(), SETQ_TEMPLATE
   
@@ -17941,6 +18307,26 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
   
   See Also: NO_FLASH, ANSI, ANSICOLOR, stripaccents()
   
+& CLUSTER_ADD()
+  Function: cluster_add(<cluster>, <object>)
+  
+  This function adds the target object into the cluster specified.
+  
+  This is a sideeffect function.
+  
+  Example:
+    > say cluster_add(#1234,#9876)
+    Cluster object #9876 has been added to #1234
+  
+  See Also: @cluster, cluster_attrcnt(), cluster_default(), cluster_edefault(), 
+            cluster_get(), cluster_get_eval(), cluster_grep(), cluster_hasattr(),
+            cluster_lattr(), cluster_regrep(), cluster_regrepi(), cluster_set(), 
+            cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
+            cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
+            cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
+
 & CLUSTER_ATTRCNT()
   Function: cluster_attrcnt(<object> [,<key>])
   
@@ -17966,7 +18352,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_DEFAULT()
   Function: cluster_default(<obj>/<attr>,<default case>)
@@ -17989,7 +18376,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_EDEFAULT()
   Function: cluster_edefault(<obj>/<attr>,<default case>)
@@ -18015,8 +18403,32 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
+& CLUSTER_FLAGS()
+  Function: cluster_flags(<object>[/<attribute>])
+  
+  This function gets the flags of the specified cluster object, or if specified
+  the attribute in the cluster.
+  
+  Example:
+    > say cluster_flags(cluster#1)
+    You say "is"
+    > say cluster_flags(cluster#1/myattrib)
+    You say "p"
+    > say cluster_flags(me/asdfadsfasdfaf)
+    You say ""
+  
+  See Also: @cluster, cluster_attrcnt(), cluster_default(), cluster_edefault(), 
+            cluster_get(), cluster_get_eval(), cluster_grep(), cluster_hasattr(),
+            cluster_lattr(), cluster_regrep(), cluster_regrepi(), cluster_set(), 
+            cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
+            cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
+            cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
+  
 & CLUSTER_GET()
   Function: cluster_get(<object>/<attribute>)
  
@@ -18038,7 +18450,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_GET_EVAL()
   Function: cluster_get_eval(<object>/<attribute>)
@@ -18066,7 +18479,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_GREP()
   Function: cluster_grep(<object>, <attribute(s)>, <pattern> [,<type>])
@@ -18095,7 +18509,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_HASATTR()
   Function: cluster_hasattr(<object>/<attribute name>)
@@ -18117,7 +18532,33 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
+
+& CLUSTER_HASFLAG()
+  Function: cluster_hasflag(<object>[/<attrib>], <flag>)
+  
+  This function returns a '1' if the flag exists in the cluster, a '0' if it
+  does not.  You may specify an attribute for the cluster for the flag match.
+  If specifying a cluster object, it chooses the cluster object you specified.
+     
+  Example:
+    > say cluster_hasflag(cluster#1, wizard)
+    You say "0"
+    > say cluster_hasflag(cluster#1, safe) 
+    You say "1"
+    > say cluster_hasflag(cluster#1/desc, NOPROG)
+    You say "1"
+  
+  See Also: @cluster, cluster_attrcnt(), cluster_default(), cluster_edefault(), 
+            cluster_get(), cluster_get_eval(), cluster_grep(), cluster_hasattr(),
+            cluster_lattr(), cluster_regrep(), cluster_regrepi(), cluster_set(), 
+            cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
+            cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
+            cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
+
 & CLUSTER_LATTR()
   Function: cluster_lattr(<obj>[/<wild>][,<target> [,<type>][,<flags>]])
  
@@ -18137,6 +18578,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
     # - page (1, 2, etc) for attribute listing.  118 for 32byte attrs.
     > - find the alphanumerical largest attribute name.
     < - find the alphanumerical smallest attribute name.
+    ~ - [~#1-#2] list attribs starting at #1 until count of #2.
   
   { see 'help cluster_lattr2' to continue }
 
@@ -18164,7 +18606,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_REGREP()
   Function: cluster_regrep(<object>,<attrs>,<regexp>)
@@ -18192,7 +18635,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_REGREPI()
   Function: cluster_regrepi(<object>,<attrs>,<regexp>)
@@ -18220,7 +18664,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_SET()
   Function: cluster_set(<object>,<[!]<flag> [[!]<flag> [!]<flag> ...]>)
@@ -18248,7 +18693,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_STATS()
   Function: cluster_stats(<object>,<type> [,<attribute name>])
@@ -18258,7 +18704,7 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
       0 - return 1 if specified object is a cluster, 0 if not (default).
       1 - return the list of objects contained in the specified cluster.
       2 - return the action list for the specified cluster.
-      2 - return the threshold value for the specified cluster.
+      3 - return the threshold value for the specified cluster.
       4 - return dbref# where the attribute name exists in the specified 
           cluster.  Third option must be used for this option.
   
@@ -18280,7 +18726,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_U()
   Function: cluster_u([<obj>/]<attr>[,<arg>]...)
@@ -18304,7 +18751,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_U2()
   Function: cluster_u2([<obj>/]<attr>[,<arg>]...)
@@ -18327,7 +18775,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_U2DEFAULT()
   Function:  cluster_u2default([<obj>/]<attr>,<default case>[,<arg>]...)
@@ -18354,7 +18803,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_U2LDEFAULT()
   Function:  cluster_u2ldefault([<obj>/]<attr>,<default case>[,<arg>]...)
@@ -18380,7 +18830,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_U2LOCAL()
   Function:  cluster_u2local([<obj>/]<attr>[,<arg>]...)
@@ -18430,7 +18881,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_UDEFAULT()
   Function:  cluster_udefault([<obj>/]<attr>,<default case>[,<arg>]...)
@@ -18455,7 +18907,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_UEVAL()
   Function: cluster_ueval([<obj>/]<attr>/permission[,<arg>],...)
@@ -18483,7 +18936,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_ULDEFAULT()
   Function:  cluster_uldefault([<obj>/]<attr>,<default case>[,<arg>]...)
@@ -18509,7 +18963,9 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
+
 & CLUSTER_ULOCAL()
   Function:  cluster_ulocal([<obj>/]<attr>[,<arg>]...)
    
@@ -18556,7 +19012,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & CLUSTER_VATTRCNT()
   Function: cluster_vattrcnt(<object>)
@@ -18582,7 +19039,36 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
+
+& CLUSTER_WIPE()
+  Function: cluster_wipe(<object>[/wildattr])
+  
+  The cluster_wipe() function will remove all matching attributes 
+  specified by a wildcard, or, if no attribute is specified, 
+  remove all attributes of the specified cluster.  This function 
+  works like @cluster/wipe and follows all permissions and 
+  restrictions of the matching command.
+  
+  Check @list options to see if this side-effect is enabled.
+  Anything using this side-effect must have the SIDEFX flag set.
+  
+  Examples:
+    > say cluster_wipe(#123)
+    You say ""
+    > say cluster_wipe(#123/*foo*)
+    You say ""
+  
+  See Also: @cluster, cluster_attrcnt(), cluster_default(), cluster_edefault(), 
+            cluster_get(), cluster_get_eval(), cluster_grep(), cluster_hasattr(),
+            cluster_lattr(), cluster_regrep(), cluster_regrepi(), cluster_set(), 
+            cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
+            cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
+            cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
+  
 & CLUSTER_XGET()
   Function: cluster_xget(<object>,<attribute>)
    
@@ -18604,7 +19090,8 @@ columns(<tx>,<wd>,<co>,<js>,<crp>,<ct>,<lb>,<mb>,<rb>,<dsp>,<del>,<fil>,<ext>)
             cluster_stats(), cluster_u(), cluster_u2(), cluster_u2default(), 
             cluster_u2ldefault(), cluster_u2local(), cluster_udefault(), 
             cluster_ueval(), cluster_uldefault(), cluster_ulocal(), 
-            cluster_vattrcnt(), cluster_xget(), iscluster()
+            cluster_vattrcnt(), cluster_wipe(), cluster_xget(), iscluster(), 
+            cluster_flags(), cluster_hasflag(), cluster_add()
 
 & folder
 The folder command allows you to work with mail folders.  For further
@@ -21023,6 +21510,13 @@ Mail: Done
   general discussions.  Please note that any insults slung on
   sting REMAIN on sting.  This will be enforced. 
   
+& SAFELOG TOGGLE
+  Toggle: SAFELOG
+  
+  When set on a player, it 'cleans' their say output for proper logging.
+  Instead of 'You say "blah"' they will see 'So-n-So says "blah"' or
+  whatever their @saystring is set as.  This works with SAY and ".
+
 & VPAGE TOGGLE
   Toggle: VPAGE
   
@@ -21157,7 +21651,7 @@ Mail: Done
   
   See Also: @extansi, ansi()
   
-& MAIL_NOPARSE
+& MAIL_NOPARSE TOGGLE
   Toggle: MAIL_NOPARSE
  
   When this toggle is set, it will surpress the evaluation of
@@ -21167,7 +21661,7 @@ Mail: Done
   
   See Also: penn mail toggle, brandy_mail toggle
   
-& MAIL_STRIPRETURN
+& MAIL_STRIPRETURN TOGGLE
   Toggle: MAIL_STRIPRETURN
   
   When this toggle is set on the player, whenever that player finishes
@@ -21234,7 +21728,7 @@ Mail: Done
   
   See Also: lpage, rpage, mrpage  
   
-& ZONEPARENT TOGGLE
+& ZONEPARENT 
   Flag: ZONEPARENT([y])
   
   This flag specifies if the ZMO is to 'distribute' or allow its attributes
@@ -21283,7 +21777,7 @@ Mail: Done
   See Also: variable exits, @exitto
   
 & IC
-  Flag: IC
+  Flag: IC([I])
  
   (*note this flag is meaningless on RhostMUSH*)
   When set on a player or object, denotes that they are In-Character and 
@@ -21301,7 +21795,7 @@ Mail: Done
   See Also: help COMBAT
   
 & COMBAT
-  Flag: COMBAT
+  Flag: COMBAT([X])
  
   (*note this flag is meaningless on RhostMUSH*)
   When this flag is set on a player or object AND the IC flag is set, it 
@@ -21313,7 +21807,7 @@ Mail: Done
   See Also: IC
   
 & ZONEMASTER
-  Flag: ZONEMASTER
+  Flag: ZONEMASTER([Z])
  
   When this flag is set on a room or object it specifies it as the control
   object for a zone. A zone is defined in two ways. First a zone is a 
@@ -21335,7 +21829,7 @@ Mail: Done
   See Also: ZONES, IC, COMBAT, ZONECONTENTS, @zone
   
 & ZONECONTENTS
-  Flag: ZONECONTENTS
+  Flag: ZONECONTENTS([z])
   
   When this flag is set on a room which is also set ZONEMASTER, then that
   zonemaster's contents will be searched for any matching $command.
@@ -22057,6 +22551,7 @@ Mail: Done
   null()        - Eats all output from <string> (evaluates).
   parenmatch()  - Returns an ansified match of (), {} and []s.
   pid()         - Return a list of process id's
+  privatize()   - All localized variables are initialized to null
   pushregs()    - Preserves, and restores setq() registers.
   r()           - Accesses local registers.
   setq()        - Copies a string into a local register.
@@ -22131,6 +22626,7 @@ Mail: Done
   vattrcnt()    - Lists user defined attributes on an object.
   visible()     - Returns true if a victim is visible from object's perspective.
   visiblemux()  - Returns true if object can examine victim.
+  writable()    - Returns true if object can write attribute on target.
   xget()        - Like get(), but searches parents.
 
 
@@ -22368,13 +22864,16 @@ Mail: Done
   zwho()         - Returns the players in a specified zone master.
 
 & cluster functions
+  cluster_add()        - Add new target into cluster.
   cluster_attrcnt()    - Returns attribute count of cluster
   cluster_default()    - Issues a default() on the cluster.
   cluster_edefault()   - Issues an edefault() on the cluster.
+  cluster_flags()      - Return flags of cluster.
   cluster_get()        - Issues a get() attribute on the cluster.
   cluster_get_eval()   - Issues an evaluated get() attribute on the cluster.
   cluster_grep()       - Greps the attribute on the cluster.
   cluster_hasattr()    - Checks if attribute exists on the cluster.
+  cluster_hasflag()    - Check flag(s) of target cluster.
   cluster_lattr()      - Lists all attributes on the cluster.
   cluster_regrep()     - Regular expression grep for the cluster (case).
   cluster_regrepi()    - Regular expression grep for the cluster (non-case).
@@ -22390,6 +22889,7 @@ Mail: Done
   cluster_uldefault()  - Issues a uldefault() on the cluster.
   cluster_ulocal()     - Issues a ulocal() on the cluster.
   cluster_vattrcnt()   - Lists the count of all user-defined attrs on cluster.
+  cluster_wipe()       - Wipe matching attributes from the cluster.
   cluster_xget()       - Issues an xget() attribute get on the cluster.
   iscluster()          - Returns '1' if target belongs to a cluster.
 
@@ -22416,15 +22916,15 @@ ASH - Ashen-Shugar        AMB - Ambrosia            EEH - Noltar
 KRK - Loki                LNS - Lensman             ODN - Odin
 SEA - Seawolf
  
-Current Revision: 3.9.1p1
- 
+Current Revision: 3.9.1p2
+
 Available Revisions:
-  3.9.1: 3.9.1p1
+  3.9.1: 3.9.1p1, 3.9.1p2
 
 & 3.9.1p1
 Release Date: 20 Jun 2008
 Status: Alpha
- 
+
 New Features
 ------------
 * Added optional <type> argument to vattrcnt, pgrep, and cluster_grep. [ASH]
@@ -22433,7 +22933,7 @@ New Features
 * Added caplist() [KRK]
 * Added listdiff(), listunion(), listinter() [ASH]
 * Added iscluster() [ASH]
- 
+
 Changes
 -------
 * Cleanup for cluster documentation [KRK]
@@ -22441,10 +22941,93 @@ Changes
 * Updated switch recognization for commands to be user friendly [ASH]
 * Center no longer has an 80 character limitation [ASH]
 * all *lattr() funcs take type > and < to show largest/smallest attrib [ASH]
- 
+
 Bug Fixes
 ---------
 * Fixed a missing declaration for clusters. [KRK]
 * Fix for OSX 10.5.2 with 'broken' header includes. [ASH]
 * Ansi bleed on some conditions of wrap(). [ASH]
 * Fixed wrap() 'justification' issue if string less than wrap length [ASH]
+
+& 3.9.1p2
+Release Date: Not Yet Released
+Status: Alpha
+
+New Features
+------------
+* Added cluster_hasflag() [ASH]
+* Added cluster_flags() [ASH]
+* Added @snapshot [ASH]
+* Added writable() for set permission checks for attributes [ASH]
+* Admin param old_elist to toggle double eval for elist [ASH]
+* SAFELOG toggle for use with modifying say behavior [ASH]
+* @cluster/action/func for functionary triggers [ASH]
+* Added config param mux_child_compat for children() compatibility [ASH]
+* added signal_cron param for reading in a file at signal [ASH]
+* @protect for reserving player names [ASH]
+* @protect has switches /alias and /unalias for tagging names as active [ASH]
+* listprotect() to list a player's protected names [ASH]
+* @blacklist for adding blacklisted specific IP addresses (like TOR) [ASH]
+* cluster_wipe() added to mimic @cluster/wipe [ASH]
+* chktrace() to check what stage of tracing the parser is at [ASH]
+* @include for content inclusion ala PennMUSH [ASH]
+* @sudo for command processing [ASH]
+* @skip for command processing [ASH]
+* privatize() for making local functions (ulocal/localize/etc) null regs [ASH]
+
+Changes
+-------
+* sees() has optional third argument to handle exits [ASH]
+* Improve buffering for @list permissions [ASH]
+* pid() handles target of process id (PID) [ASH]
+* wrap() takes 'i'gnore case for non-padding wrapped values [ASH]
+* 'f' option to escapex() handles omitting first escape [ASH]
+* mkindx now handles topic aliasing by stacking & topics [ASH]
+* elist() by default no longer double-evaluates [ASH]
+* lattr(), lattrp(), cluster_lattr(), lzone(), children() handle ~#1-#2 [ASH]
+* @list user_attrib handles AND flag and OR flag matches [ASH]
+* GUEST passwords can be 'guest' with safer_passwords enabled [ASH]
+* @idle takes %0 as argument of string you were paged with [ASH]
+* cluster functionary actions take precedence over command actions [ASH]
+* setting/clearing attributes notify you now if it's been done before [ASH]
+* Delay in cluster action/function action is now mudconf based [ASH]
+* Page now alerts you of players that you are cloaked from [ASH]
+* children() optionally behaves like mux's children() with empty returns [ASH]
+* SIGUSR1 optionally reads a file now with a kill -USR1 [ASH]
+* modified depreciated bcopy() in attribute handler to memcpy [ASH]
+* connect display in mail honors dark/unfindable/@hide [ASH]
+* Help entry for TRANSPARENT shows flag as 'T' instead of 't' [ASH]
+* Added /command switch to @trigger
+* Error entries (in error.txt) starting with '!' are evaluated [ASH]
+* map() handles multicharacter output delimiter [ASH]
+* switch_search admin param to switch search and searchng [ASH]
+* printf() has : for filler character [ASH]
+* added mux_lcon_compat to enforce lcon() returns empty string [ASH]
+* setq()/setr() now understand '+' for dynamic named variables [ASH]
+* /PROTECT switch to @function for tagging of deleting regs [ASH]
+
+Bug Fixes
+---------
+* cluster_lattr() returned #-1 instead of 0 for unrecognized attribs [ASH]
+* @search/nogarbage didn't recognize the switch properly [ASH]
+* Compile issue on old compilers parsing the C99 standard of log.c [ASH]
+* #lambda inherited from parent where it shouldn't have [ASH]
+* compile warning on variable declaration in log.c [ASH]
+* writable() didn't correctly recognize non-existing attribs [ASH]
+* double entry for > cleaned up in hash table [ASH]
+* double-eval on delextract() fixed [ASH]
+* parenthesis parsing was broken in advanced regexp on $commands [ASH]
+* double-eval on interpreter for commands specified in @break/assert [ASH]
+* unitialized variables related to @open/@dig on new databases fixed [ASH]
+* cluster_set() didn't parse the second argument properly [ASH]
+* cluster_grep[i]() didn't check the target cluster object properly [ASH]
+* elist() didn't evaluate first argument properly [ASH]
+* possible missed LBUF_FREE in listmatch and setqmatch in certain conditions [ASH]
+* cleanup of missing elements in help.txt
+* possible missed LBUF_FREE in notify code on extremely rare conditions [ASH]
+* Double pass on @protect [ASH]
+* MySQL 3rd party patch corrupted the LBUF stack.  While we do not officially
+  support the MySQL patch, it was fixed nevertheless [ASH]
+* Backing out new code could cause internal attributes to be redefined. [ASH]
+* @ps/all and pid() didn't always show the queue for non-players [ASH]
+* map() broke compatibility with output delim if not specified [ASH]

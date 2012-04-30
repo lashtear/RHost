@@ -40,6 +40,7 @@ typedef struct ufun {
 #define FN_DEL	       32	/* Delete function */
 #define FN_BYPASS      64       /* Bypass function restriction */
 #define FN_DISPLAY    128	/* Display function */
+#define FN_PROTECT    256	/* Private the variables - assumes FN_PRES */
 
 extern void	NDECL(init_functab);
 extern void	FDECL(list_functable, (dbref));

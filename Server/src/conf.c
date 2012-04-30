@@ -67,6 +67,7 @@ NDECL(cf_init)
     strcpy(mudconf.roomlog_path, "roomlogs");
     strcpy(mudconf.data_dir, "./data");
     strcpy(mudconf.txt_dir, "./txt");
+    strcpy(mudconf.image_dir, "./image");
     strcpy(mudconf.indb, "netmush.db");
     strcpy(mudconf.outdb, "");
     strcpy(mudconf.crashdb, "");
@@ -257,11 +258,26 @@ NDECL(cf_init)
     mudconf.shs_reverse = 0;
     mudconf.break_compatibility = 0;	/* @break/@assert compatibility */
     mudconf.log_network_errors = 1;	/* Log Network Errors */
+    mudconf.old_elist = 0;		/* Use old elist processing */
+    mudconf.mux_child_compat = 0;	/* MUX children() compatability */
+    mudconf.mux_lcon_compat = 0;	/* MUX lcon() compatability */
+    mudconf.switch_search = 0;		/* Switch search and searchng */
+    mudconf.signal_crontab = 0;		/* USR1 signals crontab file reading */
+    mudconf.max_name_protect = 0;
     memset(mudconf.sub_include, '\0', sizeof(mudconf.sub_include));
+    mudstate.global_regs_wipe = 0;	/* localize variables - wipe if enabled */
+    mudstate.includecnt = 0;
+    mudstate.includenest = 0;
+    mudstate.wipe_state = 0;		/* State of @wipe/wipe() */
+    mudstate.blacklist_cnt = 0;		/* Total number of blacklisted elements */
+    mudstate.bl_list = NULL;
     mudstate.log_chk_reboot = 0;
     mudstate.f_logfile_name = NULL;
     mudstate.last_network_owner = -1;	/* Last user with network issue */
     mudstate.store_loc = -1;
+    mudstate.store_lastcr = -1;
+    mudstate.store_lastx1 = -1;
+    mudstate.store_lastx2 = -1;
     mudstate.shifted = 0;
     mudstate.trainmode = 0;           /* initialize trainmode variable */
     mudstate.outputflushed = 0;               /* initialize output buffer variable */
@@ -538,6 +554,7 @@ NDECL(cf_init)
     mudstate.stack_toggle = 0;
     mudstate.stack_cntr = 0;
     mudstate.train_cntr = 0;
+    mudstate.sudo_cntr = 0;
 
 #ifdef REALITY_LEVELS
     mudconf.no_levels = 0;
@@ -556,6 +573,8 @@ NDECL(cf_init)
 
     /* maximum logs allowed per command */
     mudconf.log_maximum = 1;
+    mudconf.cluster_cap = 10;	/* Cap of cluster wait in seconds for action */
+    mudconf.clusterfunc_cap = 1;/* Cap of cluster wait in seconds for action function */
     mudstate.clust_time = 0;
     mudstate.log_maximum = 0;
 
@@ -602,6 +621,7 @@ NDECL(cf_init)
     mudstate.fqsemfirst = NULL;
     mudstate.fqsemlast = NULL;
     mudstate.badname_head = NULL;
+    mudstate.protectname_head = NULL;
     mudstate.lbuf_buffer = NULL;
     mudstate.mstat_ixrss[0] = 0;
     mudstate.mstat_ixrss[1] = 0;
@@ -934,6 +954,16 @@ CF_HAND(cf_mailint)
     else
 	return 0;
 }
+CF_HAND(cf_verifyint)
+{
+    sscanf(str, "%d", vp);
+    if ((*vp < extra2) || (*vp > extra)) {
+        if ( !mudstate.initializing) 
+           notify(player, unsafe_tprintf("Value must be between %d and %d.", extra2, extra));
+	return -1;
+    } else
+	return 0;
+}
 
 /* ---------------------------------------------------------------------------
  * cf_sidefx: Set up sidefx flags.
@@ -942,7 +972,7 @@ CF_HAND(cf_mailint)
 /* The value of MUX/PENN/ALL are taken from 'wizhelp sideeffects' */
 #define MUXMASK         131135
 #define PENNMASK        458719
-#define ALLMASK         16777215   /* 2147483647 would be 'really all', i.e. 32 1s */
+#define ALLMASK         33554431   /* 2147483647 would be 'really all', i.e. 32 1s */
 #define NO_FLAG_FOUND   -1
 
 /* The conversion function relies on the position of words in this array to match
@@ -950,7 +980,7 @@ CF_HAND(cf_mailint)
 const char * sideEffects[] = {
   "SET" , "CREATE", "LINK", "PEMIT", "TEL", "LIST", "DIG", "OPEN", "EMIT",
   "OEMIT", "CLONE", "PARENT", "LOCK", "LEMIT", "REMIT", "WIPE", "DESTROY",
-  "ZEMIT", "NAME", "TOGGLE", "TXLEVEL", "RXLEVEL", "RSET", "MOVE", NULL
+  "ZEMIT", "NAME", "TOGGLE", "TXLEVEL", "RXLEVEL", "RSET", "MOVE", "CLUSTER_ADD", NULL
 };
 
 /* This function takes an integer mask and converts it to a string list
@@ -2386,6 +2416,14 @@ CONF conftable[] =
     {(char *) "clone_copies_cost",
      cf_bool, CA_GOD | CA_IMMORTAL, &mudconf.clone_copy_cost, 0, 0, CA_PUBLIC,
      (char *) "Is the cost copied with a @clone?"},
+    {(char *) "cluster_cap",
+     cf_int, CA_WIZARD, &mudconf.comcost, 0, 0, CA_PUBLIC,
+     (char *) "This is the time in seconds action waits\r\n"\
+              "                             Default: 10   Value: %d"},
+    {(char *) "clusterfunc_cap",
+     cf_int, CA_WIZARD, &mudconf.comcost, 0, 0, CA_PUBLIC,
+     (char *) "This is the time in seconds function action waits\r\n"\
+              "                             Default: 1   Value: %d"},
     {(char *) "comcost",
      cf_int, CA_WIZARD, &mudconf.comcost, 0, 0, CA_PUBLIC,
      (char *) "This is the cost per comsystem usage\r\n"\
@@ -2455,6 +2493,10 @@ CONF conftable[] =
      cf_int, CA_GOD | CA_IMMORTAL, &mudconf.max_lastsite_cnt, 0, 0, CA_WIZARD,
      (char *) "Max times samesite allowed to connect in row.\r\n"\
               "                             Default: 20   Value: %d"},
+    {(char *) "max_name_protect",
+     cf_verifyint, CA_GOD | CA_IMMORTAL, &mudconf.max_name_protect, 100, 0, CA_WIZARD,
+     (char *) "Max name protections a player is allowed.\r\n"\
+              "                             Default: 0   Value: %d"},
     {(char *) "max_pcreate_lim",
      cf_int, CA_GOD | CA_IMMORTAL, &mudconf.max_pcreate_lim, 0, 0, CA_WIZARD,
      (char *) "Max times a player can create on connect screen.\r\n"\
@@ -2780,6 +2822,9 @@ CONF conftable[] =
      cf_int, CA_GOD | CA_IMMORTAL, &mudconf.idle_timeout, 0, 0, CA_WIZARD,
      (char *) "Value in seconds before someone idles out.\r\n"\
               "                             Default: 3600   Value: %d"},
+    {(char *) "image_dir",
+     cf_string, CA_DISABLED, (int *) mudconf.image_dir, 128, 0, CA_WIZARD,
+     (char *) "Location of dbref# image files."},
     {(char *) "imm_nomod",
      cf_bool, CA_GOD | CA_IMMORTAL, &mudconf.imm_nomod, 0, 0, CA_WIZARD,
      (char *) "Can only immortal set/effect NOMODIFY flag?"},
@@ -2977,6 +3022,12 @@ CONF conftable[] =
     {(char *) "must_unlquota",
      cf_bool, CA_GOD | CA_IMMORTAL, &mudconf.must_unlquota, 0, 0, CA_WIZARD,
      (char *) "Unlock @quota before giving more?"},
+    {(char *) "mux_child_compat",
+     cf_bool, CA_GOD | CA_IMMORTAL, &mudconf.mux_child_compat, 0, 0, CA_WIZARD,
+     (char *) "Does children() behave like MUX's?"},
+    {(char *) "mux_lcon_compat",
+     cf_bool, CA_GOD | CA_IMMORTAL, &mudconf.mux_lcon_compat, 0, 0, CA_WIZARD,
+     (char *) "Does children() behave like MUX's?"},
     {(char *) "news_file",
      cf_string, CA_DISABLED, (int *) mudconf.news_file, 32, 0, CA_WIZARD,
      (char *) "File used for news."},
@@ -3052,6 +3103,9 @@ CONF conftable[] =
     {(char *) "offline_reg",
      cf_bool, CA_GOD | CA_IMMORTAL, &mudconf.offline_reg, 0, 0, CA_WIZARD,
      (char *) "Can you autoregister on the connect screen?"},
+    {(char *) "old_elist",
+     cf_bool, CA_GOD | CA_IMMORTAL, &mudconf.old_elist, 0, 0, CA_WIZARD,
+     (char *) "Does elist() double-eval like old versions?"},
     {(char *) "online_reg",
      cf_bool, CA_GOD | CA_IMMORTAL, &mudconf.online_reg, 0, 0, CA_WIZARD,
      (char *) "Can you autoregister from a guest?"},
@@ -3336,6 +3390,9 @@ CONF conftable[] =
      cf_option, CA_DISABLED, &mudconf.sig_action,
      (pmath2) sigactions_nametab, 0, CA_WIZARD,
      (char *) "Action taken on receiving signals?"},
+    {(char *) "signal_crontab",
+     cf_bool, CA_GOD | CA_IMMORTAL, &mudconf.signal_crontab, 0, 0, CA_PUBLIC,
+     (char *) "Does signal USR1 optionally read cron file?"},
     {(char *) "space_compress",
      cf_bool, CA_GOD | CA_IMMORTAL, &mudconf.space_compress, 0, 0, CA_PUBLIC,
      (char *) "Spaces compressed?"},
@@ -3387,6 +3444,9 @@ CONF conftable[] =
     {(char *) "switch_default_all",
      cf_bool, CA_GOD | CA_IMMORTAL, &mudconf.switch_df_all, 0, 0, CA_PUBLIC,
      (char *) "Does @switch default to @switch/all?"},
+    {(char *) "switch_search",
+     cf_bool, CA_GOD | CA_IMMORTAL, &mudconf.switch_search, 0, 0, CA_PUBLIC,
+     (char *) "Switch search and searchng execution."},
     {(char *) "switch_substitutions",
      cf_bool, CA_GOD | CA_IMMORTAL, &mudconf.switch_substitutions, 0, 0, CA_PUBLIC,
      (char *) "Does @switch/switch()/switchall() allow #$?"},

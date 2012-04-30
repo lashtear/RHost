@@ -363,18 +363,36 @@ unscramble_attrnum(int attrnum)
  */
 
 static int 
-get_list(FILE * f, dbref i)
+get_list(FILE * f, dbref i, int key, int *i_count)
 {
     dbref atr, aowner;
     int c, aflags, xflags, anum;
     char *buff, *buf2, *buf2p, *ownp, *flagp;
+    ATTR *a_atr;
 
     buff = alloc_lbuf("get_list");
     mudstate.vlplay = NOTHING;
     while (1) {
 	switch (c = getc(f)) {
 	case '>':		/* read # then string */
-	    atr = unscramble_attrnum(getref(f));
+            if ( key > 0 ) {
+               buf2 = (char *)getstring_noalloc(f);
+               if ( key != 2 ) {
+                  a_atr = atr_str((char *)buf2);
+                  if ( a_atr ) {
+                     atr = a_atr->number;
+                  } else {
+                     atr = mkattr((char *)buf2);
+                     if ( atr > 0 )
+                        (*i_count)++;
+                  }
+               } else {
+                  buf2 = (char *) getstring_noalloc(f);
+                  break;
+               }
+            } else {
+	       atr = unscramble_attrnum(getref(f));
+            }
 	    if (atr > 0) {
 		/* Store the attr */
 		atr_add_raw(i, atr,
@@ -465,6 +483,10 @@ get_list(FILE * f, dbref i)
 	    }
 	    return 1;
 	default:
+            if ( key == 2 ) {
+               free_lbuf(buff);
+               return 0;
+            }
 	    fprintf(stderr,
 		"Bad character '%c' when getting attributes on object %d\n",
 		    c, i);
@@ -473,6 +495,10 @@ get_list(FILE * f, dbref i)
 
 	    (void) getstring_noalloc(f);
 	}
+        if ( key && feof(f) ) {
+           free_lbuf(buff);
+           return 0;
+        }
     }
 }
 
@@ -1000,10 +1026,11 @@ db_read(FILE * f, int *db_format, int *db_version, int *db_flags)
     int read_muse_parents, read_muse_atrdefs;
     int read_powers_player, read_powers_any;
     int deduce_version, deduce_name, deduce_zone, deduce_timestamps;
-    int aflags, f1, f2;
+    int aflags, f1, f2, i_trash;
     int zonedata;
     BOOLEXP *tempbool;
 
+    i_trash = 0;
     header_gotten = 0;
     size_gotten = 0;
     nextattr_gotten = 0;
@@ -1136,7 +1163,11 @@ db_read(FILE * f, int *db_format, int *db_version, int *db_flags)
 		} else {
 		    aflags = mudconf.vattr_flags;
 		}
-		vattr_define((char *) tstr, anum, aflags);
+                if ( anum < 0 ) {
+                   fprintf(stderr, "\nInvalid attribute number %d for attribute %s\n", anum, tstr);
+                } else {
+		   vattr_define((char *) tstr, anum, aflags);
+                }
 		break;
 	    case 'F':		/* OPEN USER ATTRIBUTE SLOT */
 		anum = getref(f);
@@ -1417,7 +1448,7 @@ db_read(FILE * f, int *db_format, int *db_version, int *db_flags)
 
 	    /* ATTRIBUTES */
 	    if (read_attribs) {
-		if (!get_list(f, i)) {
+		if (!get_list(f, i, 0, &i_trash)) {
 		    fprintf(stderr,
 			    "\nError reading attrs for object #%d\n",
 			    i);
@@ -1472,7 +1503,7 @@ db_read(FILE * f, int *db_format, int *db_version, int *db_flags)
 }
 
 static int 
-db_write_object(FILE * f, dbref i, int db_format, int flags)
+db_write_object(FILE * f, dbref i, int db_format, int flags, int key)
 {
 #ifndef STANDALONE
     ATTR *a;
@@ -1566,12 +1597,213 @@ db_write_object(FILE * f, dbref i, int db_format, int flags)
 	    }
 	    if (save) {
 		got = atr_get_raw(i, j);
-		fprintf(f, ">%d\n%s\n", j, got);
+#ifndef STANDALONE
+                if ( key && a && *a->name )
+		   fprintf(f, ">%s\n%s\n", a->name, got);
+                else
+#endif
+		   fprintf(f, ">%d\n%s\n", j, got);
 	    }
 	}
 	fprintf(f, "<\n");
     }
     return 0;
+}
+
+int 
+remote_read_sanitize(FILE *f, dbref i, int db_format, int flags)
+{
+   int i_ref, i_count;
+   char *t_str;
+   BOOLEXP *tempbool;
+
+   i_count = 0;
+   i_ref = getref(f);
+   if ( feof(f) || (i_ref < 0) || (i_ref > 7) )
+      return(1);
+   if (!(flags & V_ATRNAME)) 
+      t_str = (char *)getstring_noalloc(f); /* Player name */
+   if ( feof(f) || !*t_str )
+      return(1);
+   t_str = (char *)getstring_noalloc(f); /* Location */
+   if ( feof(f) || (*t_str == '>') )
+      return(1);
+   if (flags & V_ZONE)
+      t_str = (char *)getstring_noalloc(f); /* Zone */
+   if ( feof(f) || (*t_str == '>') )
+      return(1);
+   t_str = (char *)getstring_noalloc(f); /* Contents */
+   if ( feof(f) || (*t_str == '>') )
+      return(1);
+   t_str = (char *)getstring_noalloc(f); /* Exits */
+   if ( feof(f) || (*t_str == '>') )
+      return(1);
+   if (flags & V_LINK)
+      t_str = (char *)getstring_noalloc(f); /* Link */
+   if ( feof(f) || (*t_str == '>') )
+      return(1);
+   t_str = (char *)getstring_noalloc(f); /* Next */
+   if ( feof(f) || (*t_str == '>') )
+      return(1);
+   if (!(flags & V_ATRKEY)) {	/* Lock */
+      tempbool = getboolexp(f);
+      free_boolexp(tempbool);
+   }
+   if ( feof(f) )
+      return(1);
+   t_str = (char *)getstring_noalloc(f); 	/* Owner */
+   if ( feof(f) || (*t_str == '>') )
+      return(1);
+   if (flags & V_PARENT)
+      t_str = (char *)getstring_noalloc(f);	/* Parent */
+   if ( feof(f) || (*t_str == '>') )
+      return(1);
+   if (!(flags & V_ATRMONEY))
+      t_str = (char *)getstring_noalloc(f);	/* Pennies */
+   if ( feof(f) || (*t_str == '>') )
+      return(1);
+   t_str = (char *)getstring_noalloc(f);	/* Flags */
+   if ( feof(f) || (*t_str == '>') )
+      return(1);
+   if (flags & V_XFLAGS) {
+      t_str = (char *)getstring_noalloc(f);	/* Flags2 */
+      if ( feof(f) || (*t_str == '>') )
+         return(1);
+      t_str = (char *)getstring_noalloc(f); 	/* Flags3 */
+      if ( feof(f) || (*t_str == '>') )
+         return(1);
+      t_str = (char *)getstring_noalloc(f);	/* Flags4 */
+      if ( feof(f) || (*t_str == '>') )
+         return(1);
+      t_str = (char *)getstring_noalloc(f);	/* Toggles */
+      if ( feof(f) || (*t_str == '>') )
+         return(1);
+      t_str = (char *)getstring_noalloc(f);	/* Toggles2 */
+      if ( feof(f) || (*t_str == '>') )
+         return(1);
+      t_str = (char *)getstring_noalloc(f);	/* Toggles3 */
+      if ( feof(f) || (*t_str == '>') )
+         return(1);
+      t_str = (char *)getstring_noalloc(f);	/* Toggles4 */
+      if ( feof(f) || (*t_str == '>') )
+         return(1);
+      t_str = (char *)getstring_noalloc(f);	/* Powers */
+      if ( feof(f) || (*t_str == '>') )
+         return(1);
+      t_str = (char *)getstring_noalloc(f);	/* Powers2 */
+      if ( feof(f) || (*t_str == '>') )
+         return(1);
+      t_str = (char *)getstring_noalloc(f);	/* Depowers */
+      if ( feof(f) || (*t_str == '>') )
+         return(1);
+      t_str = (char *)getstring_noalloc(f);	/* Depowers2 */
+      if ( feof(f) || (*t_str == '>') )
+         return(1);
+      t_str = (char *)getstring_noalloc(f);	/* Zones - Rhost */
+      while ( *t_str && ( strstr((char *)t_str, (char *)"-1") == NULL ) ) {
+         if ( feof(f) || (*t_str == '>') )
+            return(1);
+         t_str = (char *)getstring_noalloc(f);	/* Zones - Rhost */
+      }
+      if ( feof(f) )
+         return(1);
+   }
+   if (!get_list(f, i, 2, &i_count)) {
+      return(1);
+   }
+   if ( feof(f) )
+      return(1);
+   return(0);
+}
+
+int
+remote_read_obj(FILE *f, dbref i, int db_format, int flags, int *i_count)
+{
+   int i_ref;
+   char *t_str;
+   BOOLEXP *tempbool;
+
+   
+   i_ref = remote_read_sanitize(f, i, db_format, flags);
+   if ( i_ref != 0 ) {
+      return(3);
+   }
+   rewind(f);
+   i_ref = getref(f);
+   if ( i_ref != Typeof(i) ) {
+      return(1);
+   }
+   if (!(flags & V_ATRNAME)) {
+      t_str = (char *)getstring_noalloc(f);
+      if ( Typeof(i) != TYPE_PLAYER ) /* Ignore name if player */
+         s_Name(i, t_str);
+   }
+   i_ref = getref(f); 		/* Grab location - toss it away */
+   if (flags & V_ZONE)
+      i_ref = getref(f); 	/* Grab Zone - toss it away */
+   i_ref = getref(f); 		/* Grab Contents - toss it away */
+   i_ref = getref(f);		/* Grab Exits - toss it away */
+   if (flags & V_LINK)
+      i_ref = getref(f);	/* Grab Link - toss it away */
+   i_ref = getref(f);		/* Grab Next - toss it away */
+   if (!(flags & V_ATRKEY)) {
+      tempbool = getboolexp(f);
+      atr_add_raw(i, A_LOCK, unparse_boolexp_quiet(1, tempbool));
+      free_boolexp(tempbool);
+   }
+   i_ref = getref(f);		/* Grab owner - toss it away */
+   if (flags & V_PARENT) {
+      i_ref = getref(f);	/* Grab parent - settem if valid */
+      if ( Good_chk(i_ref) )
+         s_Parent(i, i_ref);
+   }
+   if (!(flags & V_ATRMONEY))
+      i_ref = getref(f);	/* Grab pennies - toss it away */
+   i_ref = getref(f);		/* Grab flags - settem */
+   s_Flags(i, i_ref);
+   if (flags & V_XFLAGS) {
+      i_ref = getref(f);	/* Grab flags2 - settem */
+      s_Flags2(i, i_ref);
+      i_ref = getref(f);	/* Grab flags3 - settem */
+      s_Flags3(i, i_ref);
+      i_ref = getref(f);	/* Grab flags4 - settem */
+      s_Flags4(i, i_ref);
+      i_ref = getref(f);	/* Grab Toggles - settem */
+      s_Toggles(i, i_ref);
+      i_ref = getref(f);	/* Grab Toggles2 - settem */
+      s_Toggles2(i, i_ref);
+      i_ref = getref(f);	/* Grab Toggles3 - settem */
+      s_Toggles3(i, i_ref);
+      i_ref = getref(f);	/* Grab Toggles4 - settem */
+      s_Toggles4(i, i_ref);
+      i_ref = getref(f);	/* Grab Powers1 - settem */
+      s_Toggles5(i, i_ref);
+      i_ref = getref(f);	/* Grab Powers2 - settem */
+      s_Toggles6(i, i_ref);
+      i_ref = getref(f);	/* Grab DePowers1 - settem */
+      s_Toggles7(i, i_ref);
+      i_ref = getref(f);	/* Grab DePowers2 - settem */
+      s_Toggles8(i, i_ref);
+      db[i].zonelist = NULL;	/* Grab zones - settem if valid */
+      for( i_ref = getref(f); 
+         i_ref != -1; 
+         i_ref = getref(f)) {
+         if ( Good_chk(i_ref) && (ZoneMaster(i_ref) || (ZoneMaster(i) && !ZoneMaster(i_ref))) )
+            zlist_add(i, i_ref); 
+      }
+   }
+   if (!get_list(f, i, 1, i_count)) {
+      fprintf(stderr, "\nError reading attrs for object #%d\n", i);
+      return(2);
+   }
+   return(0);
+}
+
+void
+remote_write_obj(FILE *f, dbref i, int db_format, int flags)
+{
+   putref(f, Typeof(i));
+   (void) db_write_object(f, i, db_format, flags, 1);
 }
 
 dbref 
@@ -1620,7 +1852,7 @@ db_write(FILE * f, int format, int version)
 	}
 #endif
 	fprintf(f, "!%d\n", i);
-	db_write_object(f, i, format, flags);
+	db_write_object(f, i, format, flags, 0);
     }
     fputs("***END OF DUMP***\n", f);
     fflush(f);
